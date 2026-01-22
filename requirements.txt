@@ -1,0 +1,15 @@
+# LLM 评估工具 - 依赖包
+
+# HTTP 请求库（用于测试连接）
+requests>=2.31.0
+
+# 未来可能需要的评估框架（可选）
+# deepeval>=1.0.0
+# ragas>=0.1.0
+
+# 注意：
+# 1. tkinter 是 Python 内置库，无需安装
+# 2. 如果在某些系统上提示缺少 tkinter：
+#    - macOS: 通常已预装
+#    - Windows: 通常已预装
+#    - Ubuntu/Debian: sudo apt-get install python3-tk

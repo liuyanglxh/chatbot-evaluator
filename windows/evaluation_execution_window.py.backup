@@ -1,0 +1,410 @@
+"""
+评估执行窗口
+执行单个评估器的评估任务
+"""
+import tkinter as tk
+from tkinter import ttk, messagebox, scrolledtext
+import threading
+import sys
+from pathlib import Path
+
+# 添加父目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config_manager import ConfigManager
+from evaluators import get_executor
+
+
+class EvaluationExecutionWindow:
+    """评估执行窗口"""
+
+    def __init__(self, parent, evaluator_info):
+        self.evaluator_info = evaluator_info
+        self.config_manager = ConfigManager()
+
+        # 创建新窗口
+        self.window = tk.Toplevel(parent)
+        self.window.title(f"执行评估 - {evaluator_info['name']}")
+        self.window.geometry("900x750")
+        self.window.transient(parent)
+        self.window.grab_set()
+
+        # 创建界面
+        self.create_interface()
+
+        # 居中显示
+        self.center_window()
+
+    def create_interface(self):
+        """创建界面"""
+        # 主框架
+        main_frame = ttk.Frame(self.window, padding="20")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # 标题（显示评估器信息）
+        title_text = f"评估器：{self.evaluator_info['name']}"
+        subtitle_text = f"框架：{self.evaluator_info['framework']} | 类型：{self.evaluator_info['metric_type']} | 阈值：{self.evaluator_info['threshold']}"
+
+        title_label = ttk.Label(
+            main_frame,
+            text=title_text,
+            font=("Arial", 16, "bold")
+        )
+        title_label.grid(row=0, column=0, columnspan=2, pady=(0, 5))
+
+        subtitle_label = ttk.Label(
+            main_frame,
+            text=subtitle_text,
+            font=("Arial", 10),
+            foreground="gray"
+        )
+        subtitle_label.grid(row=1, column=0, columnspan=2, pady=(0, 20))
+
+        # 输入区域
+        input_frame = ttk.LabelFrame(main_frame, text="输入数据", padding="10")
+        input_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 15))
+
+        # 问题（必填）
+        ttk.Label(input_frame, text="问题 *:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        self.question_text = scrolledtext.ScrolledText(
+            input_frame,
+            width=60,
+            height=4,
+            font=("Arial", 11)
+        )
+        self.question_text.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=5)
+
+        # 回答（必填）
+        ttk.Label(input_frame, text="回答 *:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        self.answer_text = scrolledtext.ScrolledText(
+            input_frame,
+            width=60,
+            height=6,
+            font=("Arial", 11)
+        )
+        self.answer_text.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=5)
+
+        # 上下文（可选）
+        ttk.Label(input_frame, text="上下文（可选）:").grid(row=4, column=0, sticky=tk.W, pady=5)
+        self.context_text = scrolledtext.ScrolledText(
+            input_frame,
+            width=60,
+            height=4,
+            font=("Arial", 11)
+        )
+        self.context_text.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=5)
+
+        input_frame.columnconfigure(0, weight=1)
+
+        # 执行按钮
+        button_frame = ttk.Frame(main_frame)
+        button_frame.grid(row=3, column=0, columnspan=2, pady=(10, 15))
+
+        execute_button = ttk.Button(
+            button_frame,
+            text="▶ 执行评估",
+            command=self.execute_evaluation,
+            width=15
+        )
+        execute_button.grid(row=0, column=0, padx=5)
+
+        clear_button = ttk.Button(
+            button_frame,
+            text="🗑 清空",
+            command=self.clear_inputs,
+            width=15
+        )
+        clear_button.grid(row=0, column=1, padx=5)
+
+        # 结果区域
+        result_frame = ttk.LabelFrame(main_frame, text="评估结果", padding="10")
+        result_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 15))
+
+        # 结果文本框
+        self.result_text = scrolledtext.ScrolledText(
+            result_frame,
+            width=80,
+            height=12,
+            font=("Arial", 10),
+            state=tk.DISABLED
+        )
+        self.result_text.pack(fill=tk.BOTH, expand=True)
+
+        # 关闭按钮
+        close_button = ttk.Button(
+            main_frame,
+            text="关闭",
+            command=self.window.destroy,
+            width=15
+        )
+        close_button.grid(row=5, column=0, columnspan=2, pady=(0, 10))
+
+        # 配置网格权重
+        self.window.columnconfigure(0, weight=1)
+        self.window.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(0, weight=1)
+        main_frame.rowconfigure(4, weight=1)
+
+    def clear_inputs(self):
+        """清空输入"""
+        self.question_text.delete(1.0, tk.END)
+        self.answer_text.delete(1.0, tk.END)
+        self.context_text.delete(1.0, tk.END)
+        self.result_text.config(state=tk.NORMAL)
+        self.result_text.delete(1.0, tk.END)
+        self.result_text.config(state=tk.DISABLED)
+
+    def execute_evaluation(self):
+        """执行评估"""
+        # 获取输入
+        question = self.question_text.get(1.0, tk.END).strip()
+        answer = self.answer_text.get(1.0, tk.END).strip()
+        context = self.context_text.get(1.0, tk.END).strip()
+
+        # 验证必填项
+        if not question:
+            messagebox.showerror("错误", "请输入问题")
+            return
+
+        if not answer:
+            messagebox.showerror("错误", "请输入回答")
+            return
+
+        # 清空结果区域
+        self.result_text.config(state=tk.NORMAL)
+        self.result_text.delete(1.0, tk.END)
+        self.result_text.insert(tk.END, "⏳ 正在执行评估，请稍候...\n\n")
+        self.result_text.config(state=tk.DISABLED)
+
+        # 在后台线程中执行评估
+        thread = threading.Thread(
+            target=self._execute_evaluation_thread,
+            args=(question, answer, context)
+        )
+        thread.daemon = True
+        thread.start()
+
+    def _execute_evaluation_thread(self, question, answer, context):
+        """在后台线程中执行评估"""
+        try:
+            # 获取大模型配置
+            model_settings = self.config_manager.get_model_settings()
+
+            # 获取评估执行器
+            executor = get_executor(self.evaluator_info)
+
+            # 执行真实评估
+            result = executor.execute(question, answer, context, model_settings)
+
+            # 更新 UI
+            self.window.after(0, self._update_result, result)
+
+        except Exception as e:
+            import traceback
+            error_message = str(e)
+            error_traceback = traceback.format_exc()
+
+            # 显示错误弹窗
+            self.window.after(0, self._show_error_dialog, error_message, error_traceback)
+
+    def _show_error_dialog(self, error_message, error_traceback):
+        """显示错误对话框"""
+        # 判断错误类型
+        is_translation_error = "翻译失败" in error_message
+        dialog_title = "翻译失败" if is_translation_error else "评估失败"
+        dialog_header = "翻译执行失败" if is_translation_error else "评估执行失败"
+
+        # 创建弹窗
+        dialog = tk.Toplevel(self.window)
+        dialog.title(dialog_title)
+        dialog.geometry("700x500")
+        dialog.transient(self.window)
+        dialog.grab_set()
+
+        # 主框架
+        main_frame = ttk.Frame(dialog, padding="20")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # 错误图标
+        error_label = ttk.Label(
+            main_frame,
+            text="❌",
+            font=("Arial", 48)
+        )
+        error_label.grid(row=0, column=0, pady=(0, 10))
+
+        # 错误标题
+        title_label = ttk.Label(
+            main_frame,
+            text=dialog_header,
+            font=("Arial", 16, "bold")
+        )
+        title_label.grid(row=1, column=0, pady=(0, 20))
+
+        # 主框架
+        main_frame = ttk.Frame(dialog, padding="20")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # 错误图标
+        error_label = ttk.Label(
+            main_frame,
+            text="❌",
+            font=("Arial", 48)
+        )
+        error_label.grid(row=0, column=0, pady=(0, 10))
+
+        # 错误标题
+        title_label = ttk.Label(
+            main_frame,
+            text="评估执行失败",
+            font=("Arial", 16, "bold")
+        )
+        title_label.grid(row=1, column=0, pady=(0, 20))
+
+        # 错误信息框架
+        error_frame = ttk.LabelFrame(main_frame, text="错误信息", padding="10")
+        error_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 15))
+
+        # 错误消息文本框
+        error_text = scrolledtext.ScrolledText(
+            error_frame,
+            width=70,
+            height=10,
+            font=("Courier New", 10),
+            wrap=tk.WORD
+        )
+        error_text.pack(fill=tk.BOTH, expand=True)
+
+        # 插入完整的错误信息和堆栈跟踪
+        full_error = f"错误消息：\n{error_message}\n\n详细堆栈：\n{error_traceback}"
+        error_text.insert(1.0, full_error)
+        error_text.config(state=tk.DISABLED)
+
+        # 按钮框架
+        button_frame = ttk.Frame(main_frame)
+        button_frame.grid(row=3, column=0, pady=(10, 0))
+
+        # 复制错误信息按钮
+        copy_button = ttk.Button(
+            button_frame,
+            text="📋 复制错误信息",
+            command=lambda: self._copy_error_to_clipboard(full_error, dialog),
+            width=20
+        )
+        copy_button.grid(row=0, column=0, padx=5)
+
+        # 关闭按钮
+        close_button = ttk.Button(
+            button_frame,
+            text="关闭",
+            command=dialog.destroy,
+            width=15
+        )
+        close_button.grid(row=0, column=1, padx=5)
+
+        # 配置网格权重
+        dialog.columnconfigure(0, weight=1)
+        dialog.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(0, weight=1)
+        error_frame.columnconfigure(0, weight=1)
+        main_frame.rowconfigure(2, weight=1)
+
+        # 居中显示
+        self._center_dialog(dialog)
+
+        # 保存 full_error 供复制使用
+        dialog.error_full_text = full_error
+
+    def _copy_error_to_clipboard(self, error_text, dialog):
+        """复制错误信息到剪贴板"""
+        try:
+            dialog.clipboard_clear()
+            dialog.clipboard_append(error_text)
+            dialog.update()
+
+            # 显示复制成功提示
+            original_text = dialog.focus_get()
+            if original_text and hasattr(original_text, 'cget'):
+                try:
+                    original_btn = original_text
+                    if isinstance(original_btn, ttk.Button):
+                        # 临时更改按钮文本
+                        original_text_var = None
+                except:
+                    pass
+
+            # 简单提示
+            messagebox.showinfo("复制成功", "错误信息已复制到剪贴板")
+        except Exception as e:
+            messagebox.showerror("复制失败", f"无法复制到剪贴板：{str(e)}")
+
+    def _center_dialog(self, dialog):
+        """窗口居中显示"""
+        dialog.update_idletasks()
+
+        width = dialog.winfo_width()
+        height = dialog.winfo_height()
+
+        screen_width = dialog.winfo_screenwidth()
+        screen_height = dialog.winfo_screenheight()
+
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+
+        dialog.geometry(f'{width}x{height}+{x}+{y}')
+
+    def _update_result(self, result):
+        """更新结果显示 - 使用弹窗"""
+        if result['success']:
+            # 显示结果弹窗
+            from windows.result_popup_window import ResultPopupWindow
+            ResultPopupWindow(self.window, result, self.evaluator_info)
+
+            # 同时在原窗口显示简略信息
+            self._show_summary_in_window(result)
+        else:
+            # 显示错误
+            self._display_error_result(result.get('message', '评估失败'))
+
+    def _show_summary_in_window(self, result):
+        """在原窗口显示简略信息"""
+        self.result_text.config(state=tk.NORMAL)
+        self.result_text.delete(1.0, tk.END)
+
+        score = result.get('score', 0.0)
+        passed = result.get('passed', False)
+
+        # 配置简单样式
+        self.result_text.tag_config("success", foreground="#48BB78", font=("Arial", 14, "bold"))
+        self.result_text.tag_config("failure", foreground="#F56565", font=("Arial", 14, "bold"))
+        self.result_text.tag_config("normal", foreground="#2D3748", font=("Arial", 11))
+
+        # 显示简略信息
+        status = "✅ 通过" if passed else "❌ 失败"
+        status_tag = "success" if passed else "failure"
+
+        self.result_text.insert(tk.END, "评估完成！\n\n", "normal")
+        self.result_text.insert(tk.END, f"{status}\n", status_tag)
+        self.result_text.insert(tk.END, f"得分: {score:.3f}\n", "normal")
+        self.result_text.insert(tk.END, f"\n详细信息已在弹窗中显示。", "normal")
+
+        self.result_text.config(state=tk.DISABLED)
+
+        except Exception as e:
+            # 翻译出错时返回原文
+            print(f"翻译失败: {str(e)}")
+            return reason_text
+
+    def center_window(self):
+        """窗口居中显示"""
+        self.window.update_idletasks()
+
+        width = self.window.winfo_width()
+        height = self.window.winfo_height()
+
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+
+        self.window.geometry(f'{width}x{height}+{x}+{y}')
