@@ -30,7 +30,11 @@ class ConfigManager:
                 "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
                 "api_key": ""
             },
-            "evaluators": []
+            "evaluators": [],
+            "test_groups": [
+                {"name": "Correctness", "description": "正确性测试"},
+                {"name": "Toxicity", "description": "毒性检测测试"}
+            ]
         }
 
     def _get_config_dir(self):
@@ -271,3 +275,102 @@ class ConfigManager:
         """获取字体大小设置"""
         config = self.load_config()
         return config.get("font_size", 11)  # 默认11号字体
+
+    # ========== 测试分组管理 ==========
+
+    def get_test_groups(self) -> list:
+        """获取所有测试分组"""
+        config = self.load_config()
+        return config.get("test_groups", [])
+
+    def add_test_group(self, group_name: str, description: str = "") -> bool:
+        """
+        添加测试分组
+
+        Args:
+            group_name: 分组名称
+            description: 分组描述
+
+        Returns:
+            是否成功
+        """
+        config = self.load_config()
+
+        # 确保test_groups字段存在
+        if "test_groups" not in config:
+            config["test_groups"] = []
+
+        # 检查是否已存在
+        for group in config["test_groups"]:
+            if group["name"] == group_name:
+                return False  # 已存在
+
+        config["test_groups"].append({
+            "name": group_name,
+            "description": description
+        })
+
+        return self.save_config(config)
+
+    def remove_test_group(self, group_name: str) -> bool:
+        """
+        删除测试分组
+
+        Args:
+            group_name: 分组名称
+
+        Returns:
+            是否成功
+        """
+        config = self.load_config()
+
+        if "test_groups" not in config:
+            return False
+
+        # 删除分组
+        config["test_groups"] = [
+            g for g in config["test_groups"]
+            if g["name"] != group_name
+        ]
+
+        # 同时需要从所有测试数据中移除该分组
+        if "test_data" in config:
+            for test_data in config["test_data"]:
+                if "groups" in test_data and group_name in test_data["groups"]:
+                    test_data["groups"].remove(group_name)
+
+        return self.save_config(config)
+
+    def update_test_group(self, old_name: str, new_name: str, description: str = "") -> bool:
+        """
+        更新测试分组
+
+        Args:
+            old_name: 旧名称
+            new_name: 新名称
+            description: 描述
+
+        Returns:
+            是否成功
+        """
+        config = self.load_config()
+
+        if "test_groups" not in config:
+            return False
+
+        # 更新分组名称和描述
+        for group in config["test_groups"]:
+            if group["name"] == old_name:
+                group["name"] = new_name
+                group["description"] = description
+                break
+
+        # 同时需要更新所有测试数据中的分组名称
+        if "test_data" in config:
+            for test_data in config["test_data"]:
+                if "groups" in test_data and old_name in test_data["groups"]:
+                    # 替换分组名称
+                    idx = test_data["groups"].index(old_name)
+                    test_data["groups"][idx] = new_name
+
+        return self.save_config(config)

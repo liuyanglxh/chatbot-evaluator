@@ -141,6 +141,15 @@ class EvaluatorGUI:
         )
         test_data_manager_btn.pack(pady=5, anchor=tk.W)
 
+        # 分组管理按钮
+        group_manager_btn = ttk.Button(
+            parent,
+            text="🏷️ 分组管理",
+            command=self.open_group_manager,
+            width=25
+        )
+        group_manager_btn.pack(pady=5, anchor=tk.W)
+
         # 分隔线
         separator3 = ttk.Separator(parent, orient=tk.HORIZONTAL)
         separator3.pack(fill=tk.X, pady=15)
@@ -248,6 +257,11 @@ class EvaluatorGUI:
         """打开测试数据管理窗口"""
         from windows.test_data_manager_window import TestDataManagerWindow
         TestDataManagerWindow(self.root)
+
+    def open_group_manager(self):
+        """打开分组管理窗口"""
+        from windows.group_manager_window import GroupManagerWindow
+        GroupManagerWindow(self.root)
 
 
 def main():

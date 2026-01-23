@@ -386,7 +386,16 @@ class DeepEvalExecutor:
 
             # 提取分数
             score = metric_data.score if metric_data.score is not None else 0.0
-            passed = metric_data.success
+
+            # 判断是否通过
+            # 对于 Toxicity 指标，需要特殊处理：分数越低越好（0=无毒性=好，1=有毒性=坏）
+            metric_type = self.evaluator_info.get('metric_type', '').lower()
+            if 'toxicity' in metric_type:
+                # Toxicity：score <= threshold 表示通过（毒性低于阈值）
+                passed = score <= self.threshold
+            else:
+                # 其他指标：使用框架的 success 判定
+                passed = metric_data.success
 
             # 获取原因（如果有）
             reason = metric_data.reason if metric_data.reason else ""

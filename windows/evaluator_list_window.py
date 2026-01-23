@@ -81,13 +81,31 @@ class EvaluatorListWindow:
         )
         delete_button.grid(row=0, column=2, padx=(0, 10))
 
+        # 导出按钮
+        export_button = ttk.Button(
+            toolbar_frame,
+            text="📤 导出评估器",
+            command=self.export_evaluators,
+            width=12
+        )
+        export_button.grid(row=0, column=3, padx=(0, 10))
+
+        # 导入按钮
+        import_button = ttk.Button(
+            toolbar_frame,
+            text="📥 导入评估器",
+            command=self.import_evaluators,
+            width=12
+        )
+        import_button.grid(row=0, column=4, padx=(0, 10))
+
         # 统计标签
         self.stats_label = ttk.Label(
             toolbar_frame,
             text="共 0 个评估器",
             font=("Arial", 10)
         )
-        self.stats_label.grid(row=0, column=3, sticky=tk.W)
+        self.stats_label.grid(row=0, column=5, sticky=tk.W)
 
         # 创建 Treeview
         tree_frame = ttk.Frame(main_frame)
@@ -292,6 +310,125 @@ class EvaluatorListWindow:
 
         # 打开详情弹窗（传递ID）
         EvaluatorDetailPopup(self.window, evaluator_id, self.config_manager, self.load_evaluators)
+
+    def export_evaluators(self):
+        """导出评估器到JSON文件"""
+        try:
+            import json
+            from tkinter import filedialog
+
+            # 获取所有评估器
+            evaluators = self.config_manager.get_evaluators()
+
+            if not evaluators:
+                messagebox.showwarning("警告", "当前没有可导出的评估器")
+                return
+
+            # 打开保存文件对话框
+            file_path = filedialog.asksaveasfilename(
+                title="导出评估器",
+                defaultextension=".json",
+                filetypes=[
+                    ("JSON文件", "*.json"),
+                    ("所有文件", "*.*")
+                ],
+                initialfile="evaluators_export.json"
+            )
+
+            if not file_path:
+                return  # 用户取消了选择
+
+            # 导出数据
+            export_data = {
+                "version": "1.0",
+                "description": "LLM评估工具 - 评估器导出文件",
+                "evaluators": evaluators
+            }
+
+            # 保存到文件
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(export_data, f, indent=2, ensure_ascii=False)
+
+            messagebox.showinfo("成功", f"已成功导出 {len(evaluators)} 个评估器到:\n{file_path}")
+
+        except Exception as e:
+            messagebox.showerror("错误", f"导出失败:\n{str(e)}")
+
+    def import_evaluators(self):
+        """从JSON文件导入评估器"""
+        try:
+            import json
+            from tkinter import filedialog
+
+            # 打开选择文件对话框
+            file_path = filedialog.askopenfilename(
+                title="导入评估器",
+                filetypes=[
+                    ("JSON文件", "*.json"),
+                    ("所有文件", "*.*")
+                ]
+            )
+
+            if not file_path:
+                return  # 用户取消了选择
+
+            # 读取文件
+            with open(file_path, 'r', encoding='utf-8') as f:
+                import_data = json.load(f)
+
+            # 验证文件格式
+            if "evaluators" not in import_data:
+                messagebox.showerror("错误", "文件格式不正确：缺少 'evaluators' 字段")
+                return
+
+            evaluators_to_import = import_data["evaluators"]
+
+            if not evaluators_to_import:
+                messagebox.showwarning("警告", "文件中没有可导入的评估器")
+                return
+
+            # 统计信息
+            total_count = len(evaluators_to_import)
+            skipped_count = 0
+            imported_count = 0
+            duplicate_names = []
+
+            # 导入每个评估器
+            for evaluator in evaluators_to_import:
+                # 检查是否已存在同名评估器
+                existing_evaluators = self.config_manager.get_evaluators()
+                name_exists = any(
+                    e.get("name", "") == evaluator.get("name", "")
+                    for e in existing_evaluators
+                )
+
+                if name_exists:
+                    skipped_count += 1
+                    duplicate_names.append(evaluator.get("name", "未知"))
+                else:
+                    # 添加评估器（add_evaluator会自动生成新ID）
+                    self.config_manager.add_evaluator(evaluator)
+                    imported_count += 1
+
+            # 显示导入结果
+            result_message = f"导入完成！\n\n"
+            result_message += f"总数：{total_count} 个\n"
+            result_message += f"成功导入：{imported_count} 个\n"
+            result_message += f"跳过（已存在）：{skipped_count} 个"
+
+            if duplicate_names:
+                result_message += f"\n\n跳过的评估器：\n- " + "\n- ".join(duplicate_names)
+
+            messagebox.showinfo("导入结果", result_message)
+
+            # 刷新列表
+            self.load_evaluators()
+
+        except json.JSONDecodeError:
+            messagebox.showerror("错误", "文件格式错误：不是有效的JSON文件")
+        except Exception as e:
+            messagebox.showerror("错误", f"导入失败:\n{str(e)}")
+
 
 
 class EvaluatorDetailPopup:

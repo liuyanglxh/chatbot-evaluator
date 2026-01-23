@@ -7,6 +7,24 @@ from tkinter import ttk, scrolledtext
 import threading
 
 
+def format_number(value):
+    """
+    智能格式化数字：如果是整数就显示整数，否则保留原样
+
+    Args:
+        value: 数字值（int或float）
+
+    Returns:
+        str: 格式化后的字符串
+    """
+    if value == int(value):
+        return str(int(value))
+    else:
+        # 保留最多3位小数，但去掉末尾的0
+        formatted = f"{value:.3f}".rstrip('0').rstrip('.')
+        return formatted
+
+
 class ResultPopupWindow:
     """评估结果弹窗"""
 
@@ -336,7 +354,7 @@ class ResultPopupWindow:
         score_color = "#48BB78" if passed else "#ECC94B"
         tk.Label(
             score_frame,
-            text=f" {score:.3f} ",
+            text=f" {format_number(score)} ",
             font=("Arial", 16, "bold"),
             bg="white",
             fg=score_color
@@ -344,7 +362,7 @@ class ResultPopupWindow:
 
         tk.Label(
             score_frame,
-            text=f"/ {threshold}",
+            text=f"/ {format_number(threshold)}",
             font=("Arial", 12),
             bg="white",
             fg="#718096"
@@ -491,7 +509,7 @@ class ResultPopupWindow:
             self.reason_notebook.add(chinese_tab, text="🇨🇳 中文")
 
             # 中文内容
-            chinese_content = f"{'✅ 通过' if passed else '❌ 未通过'} | 得分: {score:.3f} / {threshold}\n\n"
+            chinese_content = f"{'✅ 通过' if passed else '❌ 未通过'} | 得分: {format_number(score)} / {format_number(threshold)}\n\n"
             chinese_content += "[正在翻译...]"
 
             # 使用普通Text，不带滚动条
@@ -519,7 +537,7 @@ class ResultPopupWindow:
             self.reason_notebook.add(english_tab, text="🇺🇸 English")
 
             # 英文内容
-            english_content = f"{'✅ PASS' if passed else '❌ FAIL'} | Score: {score:.3f} / {threshold}\n\n"
+            english_content = f"{'✅ PASS' if passed else '❌ FAIL'} | Score: {format_number(score)} / {format_number(threshold)}\n\n"
             english_content += reason
 
             # 使用普通Text，不带滚动条
@@ -543,9 +561,9 @@ class ResultPopupWindow:
             self.reason_notebook.add(bilingual_tab, text="📖 中英对照")
 
             # 中英对照内容
-            score_line = f"{'✅ 通过' if passed else '❌ 未通过'} | 得分: {score:.3f} / {threshold}"
+            score_line = f"{'✅ 通过' if passed else '❌ 未通过'} | 得分: {format_number(score)} / {format_number(threshold)}"
             if is_english:
-                score_line += f" ({'PASS' if passed else 'FAIL'} | Score: {score:.3f} / {threshold})"
+                score_line += f" ({'PASS' if passed else 'FAIL'} | Score: {format_number(score)} / {format_number(threshold)})"
 
             bilingual_content = score_line + "\n\n"
 
@@ -584,7 +602,7 @@ class ResultPopupWindow:
             self.reason_notebook.add(only_tab, text="📝 评估说明")
 
             # 中文内容
-            chinese_content = f"{'✅ 通过' if passed else '❌ 未通过'} | 得分: {score:.3f} / {threshold}\n\n"
+            chinese_content = f"{'✅ 通过' if passed else '❌ 未通过'} | 得分: {format_number(score)} / {format_number(threshold)}\n\n"
             chinese_content += reason
 
             # 使用普通Text，不带滚动条
@@ -873,7 +891,7 @@ class ResultPopupWindow:
         self.chinese_text_widget.config(state=tk.NORMAL)
         self.chinese_text_widget.delete(1.0, tk.END)
 
-        chinese_content = f"{'✅ 通过' if passed else '❌ 未通过'} | 得分: {score:.3f} / {threshold}\n\n"
+        chinese_content = f"{'✅ 通过' if passed else '❌ 未通过'} | 得分: {format_number(score)} / {format_number(threshold)}\n\n"
         chinese_content += translated
 
         self.chinese_text_widget.insert(1.0, chinese_content)
@@ -936,8 +954,8 @@ class ResultPopupWindow:
         self.bilingual_text_widget.delete(1.0, tk.END)
 
         # 分数行
-        score_line = f"{'✅ 通过' if passed else '❌ 未通过'} | 得分: {score:.3f} / {threshold}"
-        score_line += f" ({'PASS' if passed else 'FAIL'} | Score: {score:.3f} / {threshold})"
+        score_line = f"{'✅ 通过' if passed else '❌ 未通过'} | 得分: {format_number(score)} / {format_number(threshold)}"
+        score_line += f" ({'PASS' if passed else 'FAIL'} | Score: {format_number(score)} / {format_number(threshold)})"
 
         bilingual_content = score_line + "\n\n"
 

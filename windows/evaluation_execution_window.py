@@ -14,6 +14,24 @@ from config_manager import ConfigManager
 from evaluators import get_executor
 
 
+def format_number(value):
+    """
+    智能格式化数字：如果是整数就显示整数，否则保留原样
+
+    Args:
+        value: 数字值（int或float）
+
+    Returns:
+        str: 格式化后的字符串
+    """
+    if value == int(value):
+        return str(int(value))
+    else:
+        # 保留最多3位小数，但去掉末尾的0
+        formatted = f"{value:.3f}".rstrip('0').rstrip('.')
+        return formatted
+
+
 class EvaluationExecutionWindow:
     """评估执行窗口"""
 
@@ -73,6 +91,22 @@ class EvaluationExecutionWindow:
             font=("Arial", 10)
         ).pack(side=tk.LEFT, padx=(0, 10))
 
+        # 分组筛选
+        ttk.Label(
+            selection_frame,
+            text="🏷️ 分组:",
+            font=("Arial", 10)
+        ).pack(side=tk.LEFT, padx=(0, 5))
+
+        self.group_filter_combo = ttk.Combobox(
+            selection_frame,
+            width=15,
+            font=("Arial", 10),
+            state="readonly"
+        )
+        self.group_filter_combo.pack(side=tk.LEFT, padx=(0, 10))
+        self.group_filter_combo.bind("<<ComboboxSelected>>", self._on_group_filter_changed)
+
         # 测试数据下拉框
         self.test_data_combo = ttk.Combobox(
             selection_frame,
@@ -80,9 +114,6 @@ class EvaluationExecutionWindow:
             font=("Arial", 10)
         )
         self.test_data_combo.pack(side=tk.LEFT, padx=(0, 10))
-
-        # 加载测试数据
-        self._load_test_data()
 
         # 绑定选择事件（选择后自动加载）
         self.test_data_combo.bind("<<ComboboxSelected>>", self._on_test_data_selected)
@@ -93,6 +124,11 @@ class EvaluationExecutionWindow:
             command=self.open_batch_test,
             width=12
         ).pack(side=tk.LEFT)
+
+        # 加载分组选项
+        self._load_groups()
+        # 加载测试数据
+        self._load_test_data()
 
         # 问题（必填）
         ttk.Label(input_frame, text="问题 *:").grid(row=1, column=0, sticky=tk.W, pady=5)
@@ -184,9 +220,31 @@ class EvaluationExecutionWindow:
         self.result_text.delete(1.0, tk.END)
         self.result_text.config(state=tk.DISABLED)
 
+    def _load_groups(self):
+        """加载分组选项到筛选下拉框"""
+        groups = self.config_manager.get_test_groups()
+        group_names = ["全部"] + [g["name"] for g in groups]
+        self.group_filter_combo['values'] = group_names
+        self.group_filter_combo.current(0)
+        self.current_group_filter = "全部"
+
+    def _on_group_filter_changed(self, event):
+        """分组筛选改变事件"""
+        selected_group = self.group_filter_combo.get()
+        self.current_group_filter = selected_group
+        self._load_test_data()  # 重新加载测试数据
+
     def _load_test_data(self):
-        """加载测试数据到下拉框"""
+        """加载测试数据到下拉框（带分组筛选）"""
         test_data_list = self.config_manager.get_test_data_list()
+
+        # 根据分组筛选
+        if self.current_group_filter != "全部":
+            test_data_list = [
+                td for td in test_data_list
+                if self.current_group_filter in td.get("groups", [])
+            ]
+
         test_data_names = [td['name'] for td in test_data_list]
         self.test_data_combo['values'] = test_data_names
 
@@ -450,7 +508,7 @@ class EvaluationExecutionWindow:
 
         self.result_text.insert(tk.END, "评估完成！\n\n", "normal")
         self.result_text.insert(tk.END, f"{status}\n", status_tag)
-        self.result_text.insert(tk.END, f"得分: {score:.3f}\n", "normal")
+        self.result_text.insert(tk.END, f"得分: {format_number(score)}\n", "normal")
         self.result_text.insert(tk.END, f"\n详细信息已在弹窗中显示。", "normal")
 
         self.result_text.config(state=tk.DISABLED)
@@ -537,6 +595,28 @@ class BatchTestSelectionWindow:
         info_label = ttk.Label(main_frame, text=info_text, font=("Arial", 10), foreground="gray")
         info_label.grid(row=1, column=0, pady=(0, 20))
 
+        # 分组筛选
+        filter_frame = ttk.Frame(main_frame)
+        filter_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+
+        ttk.Label(
+            filter_frame,
+            text="🏷️ 分组筛选:",
+            font=("Arial", 10)
+        ).pack(side=tk.LEFT, padx=(0, 5))
+
+        self.group_filter_combo = ttk.Combobox(
+            filter_frame,
+            width=20,
+            font=("Arial", 10),
+            state="readonly"
+        )
+        self.group_filter_combo.pack(side=tk.LEFT, padx=(0, 10))
+        self.group_filter_combo.bind("<<ComboboxSelected>>", self._on_group_filter_changed)
+
+        # 加载分组选项
+        self._load_groups()
+
         # 创建滚动容器
         self.create_scrollable_container()
 
@@ -545,7 +625,7 @@ class BatchTestSelectionWindow:
 
         # 按钮
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=3, column=0, pady=(20, 0))
+        button_frame.grid(row=4, column=0, pady=(20, 0))
 
         ttk.Button(
             button_frame,
@@ -640,8 +720,22 @@ class BatchTestSelectionWindow:
         # 绑定点击事件
         self.tree.bind("<Button-1>", self._on_click)
 
+    def _load_groups(self):
+        """加载分组选项到筛选下拉框"""
+        groups = self.config_manager.get_test_groups()
+        group_names = ["全部"] + [g["name"] for g in groups]
+        self.group_filter_combo['values'] = group_names
+        self.group_filter_combo.current(0)
+        self.current_group_filter = "全部"
+
+    def _on_group_filter_changed(self, event):
+        """分组筛选改变事件"""
+        selected_group = self.group_filter_combo.get()
+        self.current_group_filter = selected_group
+        self.load_test_data()  # 重新加载测试数据
+
     def load_test_data(self):
-        """加载测试数据"""
+        """加载测试数据（带分组筛选）"""
         # 清空
         for item in self.tree.get_children():
             self.tree.delete(item)
@@ -649,6 +743,13 @@ class BatchTestSelectionWindow:
 
         # 加载所有测试数据
         test_data_list = self.config_manager.get_test_data_list()
+
+        # 根据分组筛选
+        if self.current_group_filter != "全部":
+            test_data_list = [
+                td for td in test_data_list
+                if self.current_group_filter in td.get("groups", [])
+            ]
 
         for td in test_data_list:
             var = tk.BooleanVar(value=False)
@@ -1190,7 +1291,7 @@ class BatchResultWindow:
 
             ttk.Label(
                 status_frame,
-                text=f"得分: {score:.3f}",
+                text=f"得分: {format_number(score)}",
                 font=("Arial", 16, "bold"),
                 foreground="#2D3748"
             ).pack(side=tk.LEFT)
@@ -1205,7 +1306,7 @@ class BatchResultWindow:
 
             ttk.Label(
                 status_frame,
-                text=f"得分: {score:.3f}",
+                text=f"得分: {format_number(score)}",
                 font=("Arial", 16, "bold"),
                 foreground="#2D3748"
             ).pack(side=tk.LEFT)

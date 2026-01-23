@@ -558,30 +558,65 @@ class TestDataDetailPopup:
         # 问题
         ttk.Label(main_frame, text="问题:", font=("Arial", 11, "bold")).grid(
             row=2, column=0, sticky=tk.NW, pady=10)
-        self.question_text = tk.Text(main_frame, width=60, height=5, font=("Arial", 11),
+        self.question_text = tk.Text(main_frame, width=60, height=2, font=("Arial", 11),
                                    wrap=tk.WORD, relief=tk.RIDGE, padx=5, pady=5)
         self.question_text.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=10)
         self.question_text.insert(1.0, self.test_data.get('question', ''))
+        # 绑定动态高度调整
+        self.question_text.bind("<KeyRelease>", lambda e: self._adjust_text_height(self.question_text))
 
         # 回答
         ttk.Label(main_frame, text="回答:", font=("Arial", 11, "bold")).grid(
             row=3, column=0, sticky=tk.NW, pady=10)
-        self.answer_text = tk.Text(main_frame, width=60, height=8, font=("Arial", 11),
+        self.answer_text = tk.Text(main_frame, width=60, height=2, font=("Arial", 11),
                                  wrap=tk.WORD, relief=tk.RIDGE, padx=5, pady=5)
         self.answer_text.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=10)
         self.answer_text.insert(1.0, self.test_data.get('answer', ''))
+        # 绑定动态高度调整
+        self.answer_text.bind("<KeyRelease>", lambda e: self._adjust_text_height(self.answer_text))
 
         # 上下文
         ttk.Label(main_frame, text="上下文（可选）:", font=("Arial", 11, "bold")).grid(
             row=4, column=0, sticky=tk.NW, pady=10)
-        self.context_text = tk.Text(main_frame, width=60, height=5, font=("Arial", 11),
+        self.context_text = tk.Text(main_frame, width=60, height=2, font=("Arial", 11),
                                   wrap=tk.WORD, relief=tk.RIDGE, padx=5, pady=5)
         self.context_text.grid(row=4, column=1, sticky=(tk.W, tk.E), pady=10)
         self.context_text.insert(1.0, self.test_data.get('context', ''))
 
+        # 绑定动态高度调整
+        self.context_text.bind("<KeyRelease>", lambda e: self._adjust_text_height(self.context_text))
+
+        # 分组选择
+        ttk.Label(main_frame, text="分组:", font=("Arial", 11, "bold")).grid(
+            row=5, column=0, sticky=tk.NW, pady=10)
+
+        # 分组选择容器
+        groups_frame = ttk.Frame(main_frame)
+        groups_frame.grid(row=5, column=1, sticky=(tk.W, tk.E), pady=10)
+
+        # 获取所有分组
+        test_groups = self.config_manager.get_test_groups()
+        self.group_vars = {}
+
+        # 为每个分组创建复选框
+        for i, group in enumerate(test_groups):
+            var = tk.BooleanVar()
+            # 如果测试数据已包含该分组，则选中
+            if group["name"] in self.test_data.get("groups", []):
+                var.set(True)
+
+            self.group_vars[group["name"]] = var
+
+            chk = ttk.Checkbutton(
+                groups_frame,
+                text=group["name"],
+                variable=var
+            )
+            chk.grid(row=i//3, column=i%3, sticky=tk.W, padx=10, pady=5)
+
         # 按钮区域
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=5, column=0, columnspan=2, pady=(30, 10), sticky=(tk.E))
+        button_frame.grid(row=6, column=0, columnspan=2, pady=(30, 10), sticky=(tk.E))
 
         # 保存按钮
         save_button = ttk.Button(
@@ -635,6 +670,13 @@ class TestDataDetailPopup:
                 "context": new_context
             }
 
+            # 获取选中的分组
+            selected_groups = []
+            for group_name, var in self.group_vars.items():
+                if var.get():
+                    selected_groups.append(group_name)
+            updated_data["groups"] = selected_groups
+
             # 使用update_test_data方法更新
             success = self.config_manager.update_test_data(self.test_data_id, updated_data)
 
@@ -649,6 +691,31 @@ class TestDataDetailPopup:
 
         except Exception as e:
             messagebox.showerror("错误", f"保存失败: {str(e)}")
+
+    def _adjust_text_height(self, text_widget):
+        """动态调整Text组件高度（基于视觉行数，包括自动换行）"""
+        if not text_widget:
+            return
+
+        # 获取文本内容
+        content = text_widget.get(1.0, tk.END).strip()
+
+        # 让Tkinter重新计算布局
+        text_widget.update_idletasks()
+
+        # 获取基于实际显示的行数（包括自动换行）
+        try:
+            line_count = int(text_widget.index('end-1c').split('.')[0])
+        except:
+            line_count = content.count('\n') + 1  # 降级方案
+
+        # 计算新高度：最少2行
+        new_height = max(2, line_count)
+
+        # 如果高度有变化，更新
+        current_height = int(text_widget.cget('height'))
+        if new_height != current_height:
+            text_widget.config(height=new_height)
 
     def center_window(self):
         """窗口居中显示"""
