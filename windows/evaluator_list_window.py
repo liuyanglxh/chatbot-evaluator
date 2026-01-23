@@ -10,6 +10,7 @@ from pathlib import Path
 # 添加父目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config_manager import ConfigManager
+from windows.scoring_rules_table import ScoringRulesTable
 
 
 class EvaluatorListWindow:
@@ -146,6 +147,15 @@ class EvaluatorListWindow:
         )
         close_button.grid(row=3, column=0, columnspan=3, pady=(20, 0))
 
+    def _get_framework_display_name(self, framework: str) -> str:
+        """获取框架的友好显示名称"""
+        framework_map = {
+            "deepeval": "DeepEval",
+            "ragas": "Ragas",
+            "custom": "自定义"
+        }
+        return framework_map.get(framework, framework)
+
     def load_evaluators(self):
         """加载评估器列表"""
         # 清空现有内容
@@ -160,12 +170,15 @@ class EvaluatorListWindow:
 
         # 插入数据
         for evaluator in evaluators:
+            framework = evaluator.get("framework", "")
+            framework_display = self._get_framework_display_name(framework)
+
             item_id = self.tree.insert(
                 "",
                 tk.END,
                 values=(
                     evaluator.get("name", ""),
-                    evaluator.get("framework", ""),
+                    framework_display,
                     evaluator.get("metric_type", ""),
                     evaluator.get("threshold", "")
                 )
@@ -357,6 +370,29 @@ class EvaluatorDetailPopup:
 
         return None
 
+    def _get_framework_display_name(self, framework: str) -> str:
+        """获取框架的友好显示名称"""
+        framework_map = {
+            "deepeval": "DeepEval",
+            "ragas": "Ragas",
+            "custom": "自定义"
+        }
+        return framework_map.get(framework, framework)
+
+    def _needs_criteria(self, metric_type: str) -> bool:
+        """判断是否需要自定义criteria"""
+        needs_criteria_types = [
+            "Conversation Completeness",
+            "对话完整性",
+            "Role Adherence",
+            "角色遵循",
+            "Correctness",
+            "正确性",
+            "GEval (Custom)",
+            "Custom"
+        ]
+        return any(mt in metric_type for mt in needs_criteria_types)
+
     def create_interface(self):
         """创建界面"""
         # 主框架
@@ -369,7 +405,11 @@ class EvaluatorDetailPopup:
             text=f"📝 评估器详情",
             font=("Arial", 16, "bold")
         )
-        title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
+        title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
+
+        # 获取框架和类型
+        framework = self.evaluator_data.get("framework", "")
+        metric_type = self.evaluator_data.get("metric_type", "")
 
         # 评估器名称
         ttk.Label(main_frame, text="评估器名称:", font=("Arial", 11, "bold")).grid(
@@ -378,12 +418,17 @@ class EvaluatorDetailPopup:
         self.name_var = tk.StringVar(value=self.evaluator_data.get("name", ""))
         name_entry = ttk.Entry(main_frame, textvariable=self.name_var, width=50, font=("Arial", 11))
         name_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=10)
+        # 添加必填标记
+        ttk.Label(main_frame, text="*必填", foreground="red", font=("Arial", 9)).grid(
+            row=1, column=2, sticky=tk.W, padx=(5, 0), pady=10
+        )
 
         # 框架
         ttk.Label(main_frame, text="评估框架:", font=("Arial", 11, "bold")).grid(
             row=2, column=0, sticky=tk.W, pady=10
         )
-        self.framework_var = tk.StringVar(value=self.evaluator_data.get("framework", ""))
+        framework_display = self._get_framework_display_name(framework)
+        self.framework_var = tk.StringVar(value=framework_display)
         framework_entry = ttk.Entry(main_frame, textvariable=self.framework_var, width=50, font=("Arial", 11))
         framework_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=10)
         framework_entry.config(state=tk.DISABLED)  # 框架不可修改
@@ -392,29 +437,78 @@ class EvaluatorDetailPopup:
         ttk.Label(main_frame, text="评估器类型:", font=("Arial", 11, "bold")).grid(
             row=3, column=0, sticky=tk.W, pady=10
         )
-        self.metric_type_var = tk.StringVar(value=self.evaluator_data.get("metric_type", ""))
+        self.metric_type_var = tk.StringVar(value=metric_type)
         metric_type_entry = ttk.Entry(main_frame, textvariable=self.metric_type_var, width=50, font=("Arial", 11))
         metric_type_entry.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=10)
         metric_type_entry.config(state=tk.DISABLED)  # 类型不可修改
 
-        # 阈值
-        ttk.Label(main_frame, text="阈值:", font=("Arial", 11, "bold")).grid(
+        # 阈值（标签根据框架动态显示）
+        if framework == "custom":
+            threshold_label_text = "阈值:"
+        else:
+            threshold_label_text = "阈值 (0-1):"
+
+        ttk.Label(main_frame, text=threshold_label_text, font=("Arial", 11, "bold")).grid(
             row=4, column=0, sticky=tk.W, pady=10
         )
         self.threshold_var = tk.StringVar(value=str(self.evaluator_data.get("threshold", "")))
         threshold_entry = ttk.Entry(main_frame, textvariable=self.threshold_var, width=50, font=("Arial", 11))
         threshold_entry.grid(row=4, column=1, sticky=(tk.W, tk.E), pady=10)
 
-        # 评估标准（如果有）
-        criteria = self.evaluator_data.get("criteria", "")
-        if criteria:
-            ttk.Label(main_frame, text="评估标准:", font=("Arial", 11, "bold")).grid(
-                row=5, column=0, sticky=tk.NW, pady=10
+        # 评估标准（如果有需要）
+        self.criteria_text = None
+        self.criteria_frame = ttk.Frame(main_frame)
+
+        # 评分规则表格（用于自定义框架）
+        self.scoring_rules_frame = ttk.Frame(main_frame)
+
+        # 根据框架和类型决定显示什么
+        if framework == "custom" and metric_type == "规则评分":
+            # 显示评分规则表格
+            ttk.Label(self.scoring_rules_frame, text="评分规则:", font=("Arial", 11, "bold")).grid(
+                row=0, column=0, sticky=tk.NW, pady=10
             )
 
-            # 创建Text组件（初始height=5，会根据内容自动调整）
+            # 创建评分规则表格组件
+            self.scoring_rules_table = ScoringRulesTable(self.scoring_rules_frame)
+
+            # 加载现有规则
+            scoring_rules = self.evaluator_data.get("scoring_rules", [])
+            if scoring_rules:
+                # 清空默认的2行
+                self.scoring_rules_table.rows.clear()
+                for widget in self.scoring_rules_table.rows_frame.winfo_children():
+                    widget.destroy()
+
+                # 添加现有规则
+                for rule in scoring_rules:
+                    self.scoring_rules_table.add_row(
+                        score_value=str(rule['score']),
+                        desc_value=rule['description']
+                    )
+            else:
+                # 如果没有规则，保持默认的2个空行
+                pass
+
+            self.scoring_rules_table.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+
+            # 配置grid权重
+            self.scoring_rules_frame.columnconfigure(0, weight=1)
+
+            # 显示评分规则框架（row=5）
+            self.scoring_rules_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
+
+        elif self._needs_criteria(metric_type):
+            # 显示criteria输入框
+            criteria = self.evaluator_data.get("criteria", "")
+
+            ttk.Label(self.criteria_frame, text="评估标准:", font=("Arial", 11, "bold")).grid(
+                row=0, column=0, sticky=tk.NW, pady=10
+            )
+
+            # 创建Text组件
             self.criteria_text = tk.Text(
-                main_frame,
+                self.criteria_frame,
                 font=("Arial", 11),
                 height=5,
                 wrap=tk.WORD,
@@ -422,24 +516,39 @@ class EvaluatorDetailPopup:
                 padx=10,
                 pady=10
             )
-            self.criteria_text.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+            self.criteria_text.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
-            # 先插入内容
-            self.criteria_text.insert(1.0, criteria)
+            # 插入内容
+            if criteria:
+                self.criteria_text.insert(1.0, criteria)
 
             # 立即根据内容调整初始高度
-            self.window.update_idletasks()  # 确保内容已渲染
+            self.window.update_idletasks()
             self._adjust_text_height()
 
             # 绑定KeyRelease事件，动态调整高度
             self.criteria_text.bind("<KeyRelease>", self._adjust_text_height)
-        else:
-            # 如果没有criteria，添加一个占位符
-            self.criteria_text = None
 
-        # 按钮区域
+            # 配置grid权重
+            self.criteria_frame.columnconfigure(0, weight=1)
+
+            # 显示criteria框架（row=5）
+            self.criteria_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
+
+        # 说明文本（固定在row=6）
+        info_text = self._get_info_text(framework, metric_type)
+        info_label = ttk.Label(
+            main_frame,
+            text=info_text,
+            font=("Arial", 10),
+            justify=tk.LEFT,
+            foreground="gray"
+        )
+        info_label.grid(row=6, column=0, columnspan=3, pady=(20, 10))
+
+        # 按钮区域（row=7）
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=7, column=0, columnspan=2, pady=(30, 10), sticky=(tk.E))
+        button_frame.grid(row=7, column=0, columnspan=3, pady=(30, 10), sticky=(tk.E))
 
         # 保存按钮
         save_button = ttk.Button(
@@ -463,6 +572,24 @@ class EvaluatorDetailPopup:
         self.window.columnconfigure(0, weight=1)
         self.window.rowconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
+
+    def _get_info_text(self, framework: str, metric_type: str) -> str:
+        """获取说明文本"""
+        if framework == "custom" and metric_type == "规则评分":
+            return """说明：
+1. 这是自定义评估器，基于评分规则进行评估
+2. 评分规则至少需要2条
+3. 分数不能重复
+4. 系统将根据规则自动生成评估Prompt"""
+        elif self._needs_criteria(metric_type):
+            return """说明：
+1. 这是自定义评估标准
+2. 评估标准已保存
+3. 可以修改标准和阈值"""
+        else:
+            return """说明：
+1. 这是标准评估器
+2. 可以修改阈值"""
 
     def _adjust_text_height(self, event=None):
         """动态调整Text组件高度"""
@@ -490,37 +617,54 @@ class EvaluatorDetailPopup:
             # 获取新的值
             new_name = self.name_var.get().strip()
             new_threshold = self.threshold_var.get().strip()
+            framework = self.evaluator_data.get("framework", "")
+            metric_type = self.evaluator_data.get("metric_type", "")
 
-            # 验证
+            # 验证必填项
             if not new_name:
                 messagebox.showerror("错误", "评估器名称不能为空")
                 return
 
+            # 验证阈值
             try:
                 new_threshold = float(new_threshold)
-                if not 0 <= new_threshold <= 1:
-                    raise ValueError("阈值必须在0-1之间")
+                # 自定义框架不做范围校验，其他框架校验0-1
+                if framework != "custom":
+                    if not 0 <= new_threshold <= 1:
+                        raise ValueError("阈值必须在0-1之间")
             except ValueError as e:
-                messagebox.showerror("错误", f"阈值格式错误: {str(e)}")
+                if framework == "custom":
+                    messagebox.showerror("错误", "阈值必须是数字")
+                else:
+                    messagebox.showerror("错误", f"阈值格式错误: {str(e)}")
                 return
-
-            # 获取新的criteria
-            new_criteria = ""
-            if self.criteria_text:
-                new_criteria = self.criteria_text.get(1.0, tk.END).strip()
 
             # 构建更新后的评估器数据（保留原有ID）
             updated_data = {
                 "id": self.evaluator_id,  # 保留原有ID，不创建新的
                 "name": new_name,
-                "framework": self.evaluator_data.get("framework"),
-                "metric_type": self.evaluator_data.get("metric_type"),
+                "framework": framework,
+                "metric_type": metric_type,
                 "threshold": new_threshold
             }
 
-            # 如果有criteria，添加到数据中
-            if new_criteria:
-                updated_data["criteria"] = new_criteria
+            # 如果是自定义框架，获取评分规则
+            if framework == "custom" and metric_type == "规则评分":
+                try:
+                    scoring_rules = self.scoring_rules_table.get_rules()
+                    updated_data["scoring_rules"] = scoring_rules
+                except ValueError as e:
+                    messagebox.showerror("错误", f"评分规则数据不合法:\n{str(e)}")
+                    return
+
+            # 如果是DeepEval/Ragas的自定义类型，获取criteria
+            elif self._needs_criteria(metric_type):
+                new_criteria = ""
+                if self.criteria_text:
+                    new_criteria = self.criteria_text.get(1.0, tk.END).strip()
+
+                if new_criteria:
+                    updated_data["criteria"] = new_criteria
 
             # 使用update_evaluator方法更新（而不是删除重建）
             success = self.config_manager.update_evaluator(self.evaluator_id, updated_data)

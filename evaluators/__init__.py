@@ -3,8 +3,9 @@
 基于真实评估框架的实现
 """
 from .deepeval_executor import DeepEvalExecutor
+from .custom_executor import CustomExecutor
 
-__all__ = ['DeepEvalExecutor']
+__all__ = ['DeepEvalExecutor', 'CustomExecutor']
 
 
 def get_executor(evaluator_info):
@@ -14,7 +15,7 @@ def get_executor(evaluator_info):
     Args:
         evaluator_info: 评估器配置字典
             {
-                'framework': 'deepeval' or 'ragas',
+                'framework': 'deepeval' or 'ragas' or 'custom',
                 'metric_type': 'Faithfulness',
                 'threshold': 0.6
             }
@@ -26,6 +27,8 @@ def get_executor(evaluator_info):
 
     if framework == 'deepeval':
         return DeepEvalExecutor(evaluator_info)
+    elif framework == 'custom':
+        return CustomExecutor(evaluator_info)
     elif framework == 'ragas':
         # TODO: 实现 Ragas 执行器
         raise NotImplementedError("Ragas 框架支持待实现")

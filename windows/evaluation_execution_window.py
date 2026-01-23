@@ -84,15 +84,8 @@ class EvaluationExecutionWindow:
         # 加载测试数据
         self._load_test_data()
 
-        # 绑定选择事件
+        # 绑定选择事件（选择后自动加载）
         self.test_data_combo.bind("<<ComboboxSelected>>", self._on_test_data_selected)
-
-        ttk.Button(
-            selection_frame,
-            text="加载",
-            command=self._load_selected_test_data,
-            width=8
-        ).pack(side=tk.LEFT, padx=(0, 5))
 
         ttk.Button(
             selection_frame,

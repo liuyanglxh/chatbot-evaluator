@@ -35,6 +35,31 @@ class DeepEvalExecutor:
         self.metric_type = evaluator_info['metric_type']
         self.threshold = float(evaluator_info['threshold'])
 
+        # 清除DeepEval缓存，确保使用最新的criteria
+        self._clear_deepeval_cache()
+
+    def _clear_deepeval_cache(self):
+        """清除DeepEval缓存文件"""
+        try:
+            import os
+            from pathlib import Path
+
+            # 获取脚本所在目录（项目根目录）
+            script_dir = Path(__file__).parent.parent
+            cache_file = script_dir / ".deepeval" / ".deepeval-cache.json"
+
+            print(f"🔍 查找DeepEval缓存: {cache_file}")
+            print(f"   缓存文件是否存在: {cache_file.exists()}")
+
+            if cache_file.exists():
+                os.remove(cache_file)
+                print(f"✅ 已清除DeepEval缓存: {cache_file}")
+            else:
+                print(f"ℹ️  DeepEval缓存文件不存在: {cache_file}")
+
+        except Exception as e:
+            print(f"⚠️  清除DeepEval缓存失败: {e}")
+
     def execute(self, question: str, answer: str, context: str, model_settings: Dict) -> Dict[str, Any]:
         """
         执行评估
@@ -193,10 +218,24 @@ class DeepEvalExecutor:
              "Correctness" in metric_type or "正确性" in metric_type:
             # 优先使用配置中的criteria，如果没有则使用默认值
             criteria = self.evaluator_info.get("criteria", "")
+
+            print("\n" + "="*60)
+            print(f"创建GEval评估器")
+            print(f"  metric_type: {metric_type}")
+            print(f"  配置中的criteria长度: {len(criteria)}")
+            print(f"  配置中的criteria内容: {criteria[:100] if criteria else '(空)'}...")
+
             if not criteria:
+                print(f"  ⚠️  配置中无criteria，使用默认值")
                 criteria = self._get_custom_criteria(metric_type)
+            else:
+                print(f"  ✅ 使用配置中的criteria")
 
             evaluation_params = self._get_evaluation_params(metric_type)
+
+            print(f"  最终使用的criteria: {criteria[:100]}...")
+            print(f"  evaluation_params: {evaluation_params}")
+            print("="*60 + "\n")
 
             return GEval(
                 name=metric_type,
