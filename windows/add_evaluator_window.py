@@ -24,16 +24,76 @@ class AddEvaluatorWindow:
         self.window.transient(parent)
         self.window.grab_set()
 
+        # 创建滚动容器
+        self.create_scrollable_container()
+
         # 创建界面
         self.create_interface()
 
         # 居中显示
         self.center_window()
 
+    def create_scrollable_container(self):
+        """创建可滚动容器"""
+        # 创建主容器
+        container = ttk.Frame(self.window)
+        container.pack(fill=tk.BOTH, expand=True)
+
+        # 创建Canvas
+        self.canvas = tk.Canvas(container, highlightthickness=0)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # 创建滚动条
+        scrollbar = ttk.Scrollbar(container, orient=tk.VERTICAL, command=self.canvas.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # 配置Canvas滚动
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+
+        # 创建可滚动框架
+        self.scrollable_frame = ttk.Frame(self.canvas)
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor=tk.NW)
+
+        # 绑定配置事件
+        self.scrollable_frame.bind("<Configure>", self._on_frame_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+
+        # 绑定鼠标滚轮事件
+        self._bind_mousewheel()
+
+    def _on_frame_configure(self, event):
+        """框架配置改变时更新滚动区域"""
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event):
+        """Canvas配置改变时调整框架宽度"""
+        # 调整scrollable_frame的宽度以匹配canvas宽度
+        canvas_width = event.width
+        self.canvas.itemconfig(self.canvas_window, width=canvas_width)
+
+    def _bind_mousewheel(self):
+        """绑定鼠标滚轮事件"""
+        # Windows
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        # Linux
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel)
+        # macOS
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _on_mousewheel(self, event):
+        """鼠标滚轮事件处理"""
+        # Windows/macOS: event.delta
+        # Linux: event.num (4=up, 5=down)
+        if event.num == 5 or event.delta < 0:
+            self.canvas.yview_scroll(1, "units")
+        elif event.num == 4 or event.delta > 0:
+            self.canvas.yview_scroll(-1, "units")
+
     def create_interface(self):
         """创建界面"""
-        # 主框架
-        main_frame = ttk.Frame(self.window, padding="20")
+        # 主框架（放在scrollable_frame中）
+        main_frame = ttk.Frame(self.scrollable_frame, padding="20")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         # 标题
@@ -87,6 +147,9 @@ class AddEvaluatorWindow:
         )
         self.metric_combo.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=10)
 
+        # 绑定选择事件
+        self.metric_combo.bind("<<ComboboxSelected>>", self.on_metric_type_change)
+
         # 初始为空，等待选择框架
         self.metric_combo['values'] = ["请先选择评估框架"]
 
@@ -96,30 +159,48 @@ class AddEvaluatorWindow:
         threshold_entry = ttk.Entry(main_frame, textvariable=self.threshold_var, width=50)
         threshold_entry.grid(row=4, column=1, sticky=(tk.W, tk.E), pady=10)
 
-        # 说明文本
-        info_text = """
-说明：
-1. 选择评估框架（Ragas 或 DeepEval）
-2. 根据框架选择对应的评估器类型
-3. 设置评估器的阈值（0-1之间）
-4. 评估器将保存到配置文件中
-        """
-        info_label = ttk.Label(
+        # 评估标准（Prompt）输入区域 - 初始隐藏
+        self.criteria_frame = ttk.Frame(main_frame)
+        # 不grid，等需要时再显示
+
+        ttk.Label(self.criteria_frame, text="评估标准:").grid(row=0, column=0, sticky=tk.NW, pady=10)
+
+        # 创建Text组件
+        self.criteria_text = tk.Text(
+            self.criteria_frame,
+            font=("Arial", 10),
+            height=5,  # 初始5行
+            wrap=tk.WORD,
+            relief=tk.RIDGE,
+            padx=5,
+            pady=5
+        )
+        self.criteria_text.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+
+        # 绑定KeyRelease事件，动态调整高度
+        self.criteria_text.bind("<KeyRelease>", self._adjust_text_height)
+
+        # 配置grid权重
+        self.criteria_frame.columnconfigure(0, weight=1)
+
+        # 说明文本（初始在row=6，会动态调整）
+        self.info_label = ttk.Label(
             main_frame,
-            text=info_text,
+            text="",
             font=("Arial", 10),
             justify=tk.LEFT,
             foreground="gray"
         )
-        info_label.grid(row=5, column=0, columnspan=2, pady=(20, 10))
+        self._update_info_text()
+        self.info_label.grid(row=6, column=0, columnspan=2, pady=(20, 10))
 
-        # 按钮框架
-        button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=6, column=0, columnspan=2, pady=(30, 0))
+        # 按钮框架（初始row=7，会动态调整）
+        self.button_frame = ttk.Frame(main_frame)
+        self.button_frame.grid(row=7, column=0, columnspan=2, pady=(30, 0))
 
         # 添加按钮
         add_button = ttk.Button(
-            button_frame,
+            self.button_frame,
             text="添加",
             command=self.add_evaluator,
             width=15
@@ -128,16 +209,14 @@ class AddEvaluatorWindow:
 
         # 取消按钮
         cancel_button = ttk.Button(
-            button_frame,
+            self.button_frame,
             text="取消",
             command=self.window.destroy,
             width=15
         )
         cancel_button.grid(row=0, column=1, padx=5)
 
-        # 配置网格权重
-        self.window.columnconfigure(0, weight=1)
-        self.window.rowconfigure(0, weight=1)
+        # 配置网格权重（main_frame的列）
         main_frame.columnconfigure(1, weight=1)
 
     def on_framework_change(self):
@@ -165,6 +244,7 @@ class AddEvaluatorWindow:
                 "Contextual Relevancy",
                 "Bias",
                 "Toxicity",
+                "Conversation Completeness",  # 新增
                 "GEval (Custom)"
             ]
         else:
@@ -217,6 +297,14 @@ class AddEvaluatorWindow:
             "threshold": threshold_float
         }
 
+        # 如果是自定义类型，获取criteria
+        if self._needs_criteria(metric_type):
+            criteria = self.criteria_text.get(1.0, tk.END).strip()
+            if not criteria:
+                messagebox.showerror("错误", f"{metric_type} 需要填写评估标准")
+                return
+            evaluator_config["criteria"] = criteria
+
         # 保存到配置
         success = self.config_manager.add_evaluator(evaluator_config)
 
@@ -240,3 +328,92 @@ class AddEvaluatorWindow:
         y = (screen_height - height) // 2
 
         self.window.geometry(f'{width}x{height}+{x}+{y}')
+
+    def on_metric_type_change(self, event):
+        """评估器类型选择改变时的回调"""
+        metric_type = self.metric_type_var.get()
+
+        # 判断是否需要显示criteria输入框
+        if self._needs_criteria(metric_type):
+            # 显示criteria输入框（row=5）
+            self.criteria_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
+
+            # 更新说明文本内容（移到row=6）
+            self.info_label.grid(row=6, column=0, columnspan=2, pady=(10, 10))
+            self._update_info_text(has_criteria=True)
+
+            # 按钮框架移到row=7
+            self.button_frame.grid(row=7, column=0, columnspan=2, pady=(30, 0))
+
+            # 预填充默认prompt（如果有的话）
+            default_criteria = self._get_default_criteria(metric_type)
+            if default_criteria and not self.criteria_text.get(1.0, tk.END).strip():
+                self.criteria_text.insert(1.0, default_criteria)
+        else:
+            # 隐藏criteria输入框
+            self.criteria_frame.grid_forget()
+
+            # 更新说明文本内容（保持在row=6）
+            self.info_label.grid(row=6, column=0, columnspan=2, pady=(20, 10))
+            self._update_info_text(has_criteria=False)
+
+            # 按钮框架保持在row=7
+            self.button_frame.grid(row=7, column=0, columnspan=2, pady=(30, 0))
+
+        # 调整窗口大小
+        self.window.update_idletasks()
+
+    def _update_info_text(self, has_criteria=False):
+        """动态更新说明文本"""
+        if has_criteria:
+            info_text = """说明：
+1. 选择评估框架（Ragas 或 DeepEval）
+2. 根据框架选择对应的评估器类型
+3. 设置评估器的阈值（0-1之间）
+4. 填写评估标准，定义评估规则
+5. 评估器将保存到配置文件中"""
+        else:
+            info_text = """说明：
+1. 选择评估框架（Ragas 或 DeepEval）
+2. 根据框架选择对应的评估器类型
+3. 设置评估器的阈值（0-1之间）
+4. 评估器将保存到配置文件中"""
+
+        self.info_label.config(text=info_text)
+
+    def _needs_criteria(self, metric_type: str) -> bool:
+        """判断是否需要自定义criteria"""
+        needs_criteria_types = [
+            "Conversation Completeness",
+            "对话完整性",
+            "Role Adherence",
+            "角色遵循",
+            "Correctness",
+            "正确性",
+            "GEval (Custom)",
+            "Custom"
+        ]
+        return any(mt in metric_type for mt in needs_criteria_types)
+
+    def _get_default_criteria(self, metric_type: str) -> str:
+        """获取默认的评估标准（用于预填充）"""
+        # 这里暂时返回空，让用户自己填写
+        # 或者可以从executor中获取默认值
+        return ""
+
+    def _adjust_text_height(self, event=None):
+        """动态调整Text组件高度"""
+        # 获取文本内容
+        content = self.criteria_text.get(1.0, tk.END)
+        lines = content.count('\n') + 1  # 计算行数
+
+        # 计算新高度：最少5行，超过2行后 = 行数 + 3
+        if lines <= 2:
+            new_height = 5
+        else:
+            new_height = lines + 3
+
+        # 如果高度有变化，更新
+        current_height = int(self.criteria_text.cget('height'))
+        if new_height != current_height:
+            self.criteria_text.config(height=new_height)

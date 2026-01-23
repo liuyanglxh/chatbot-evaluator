@@ -92,6 +92,13 @@ class EvaluationExecutionWindow:
             text="加载",
             command=self._load_selected_test_data,
             width=8
+        ).pack(side=tk.LEFT, padx=(0, 5))
+
+        ttk.Button(
+            selection_frame,
+            text="📋 批量测试",
+            command=self.open_batch_test,
+            width=12
         ).pack(side=tk.LEFT)
 
         # 问题（必填）
@@ -469,6 +476,882 @@ class EvaluationExecutionWindow:
         self.result_text.insert(tk.END, error_message, "normal")
 
         self.result_text.config(state=tk.DISABLED)
+
+    def center_window(self):
+        """窗口居中显示"""
+        self.window.update_idletasks()
+
+        width = self.window.winfo_width()
+        height = self.window.winfo_height()
+
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+
+        self.window.geometry(f'{width}x{height}+{x}+{y}')
+
+    def open_batch_test(self):
+        """打开批量测试窗口"""
+        BatchTestSelectionWindow(self.window, self.evaluator_info, self.config_manager)
+
+
+class BatchTestSelectionWindow:
+    """批量测试数据选择窗口"""
+
+    def __init__(self, parent, evaluator_info, config_manager):
+        self.evaluator_info = evaluator_info
+        self.config_manager = config_manager
+
+        # 存储复选框状态 {item_id: BooleanVar}
+        self.checkbox_vars = {}
+
+        # 创建窗口
+        self.window = tk.Toplevel(parent)
+        self.window.title("批量测试 - 选择测试数据")
+        self.window.geometry("800x600")
+        self.window.transient(parent)
+        self.window.grab_set()
+
+        # 创建界面
+        self.create_interface()
+
+        # 加载数据
+        self.load_test_data()
+
+        # 居中显示
+        self.center_window()
+
+    def create_interface(self):
+        """创建界面"""
+        # 主框架
+        main_frame = ttk.Frame(self.window, padding="20")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # 标题
+        title_label = ttk.Label(
+            main_frame,
+            text="📋 批量测试 - 选择测试数据",
+            font=("Arial", 16, "bold")
+        )
+        title_label.grid(row=0, column=0, pady=(0, 20))
+
+        # 说明
+        info_text = f"评估器: {self.evaluator_info['name']}\n" \
+                   f"框架: {self.evaluator_info['framework']} | " \
+                   f"类型: {self.evaluator_info['metric_type']}"
+        info_label = ttk.Label(main_frame, text=info_text, font=("Arial", 10), foreground="gray")
+        info_label.grid(row=1, column=0, pady=(0, 20))
+
+        # 创建滚动容器
+        self.create_scrollable_container()
+
+        # 创建列表
+        self.create_test_data_list()
+
+        # 按钮
+        button_frame = ttk.Frame(main_frame)
+        button_frame.grid(row=3, column=0, pady=(20, 0))
+
+        ttk.Button(
+            button_frame,
+            text="☑ 全选",
+            command=self.toggle_select_all,
+            width=10
+        ).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(
+            button_frame,
+            text="▶ 开始测试",
+            command=self.start_batch_test,
+            width=12
+        ).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(
+            button_frame,
+            text="取消",
+            command=self.window.destroy,
+            width=10
+        ).pack(side=tk.LEFT, padx=5)
+
+        # 配置网格权重
+        self.window.columnconfigure(0, weight=1)
+        self.window.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(0, weight=1)
+
+    def create_scrollable_container(self):
+        """创建可滚动容器"""
+        # 创建主容器
+        container = ttk.Frame(self.window)
+        container.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=20, pady=(0, 10))
+
+        # 创建Canvas
+        self.canvas = tk.Canvas(container, highlightthickness=0)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # 创建滚动条
+        scrollbar = ttk.Scrollbar(container, orient=tk.VERTICAL, command=self.canvas.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # 配置Canvas滚动
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+
+        # 创建可滚动框架
+        self.scrollable_frame = ttk.Frame(self.canvas)
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor=tk.NW)
+
+        # 绑定配置事件
+        self.scrollable_frame.bind("<Configure>", self._on_frame_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+
+        # 绑定鼠标滚轮事件
+        self._bind_mousewheel()
+
+    def _on_frame_configure(self, event):
+        """框架配置改变时更新滚动区域"""
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event):
+        """Canvas配置改变时调整框架宽度"""
+        canvas_width = event.width
+        self.canvas.itemconfig(self.canvas_window, width=canvas_width)
+
+    def _bind_mousewheel(self):
+        """绑定鼠标滚轮事件"""
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel)
+
+    def _on_mousewheel(self, event):
+        """鼠标滚轮事件处理"""
+        if event.num == 5 or event.delta < 0:
+            self.canvas.yview_scroll(1, "units")
+        elif event.num == 4 or event.delta > 0:
+            self.canvas.yview_scroll(-1, "units")
+
+    def create_test_data_list(self):
+        """创建测试数据列表"""
+        # 创建Treeview
+        columns = ("select", "name")
+        self.tree = ttk.Treeview(self.scrollable_frame, columns=columns, show="headings", height=15)
+
+        self.tree.heading("select", text="✓")
+        self.tree.heading("name", text="测试数据名称")
+
+        self.tree.column("select", width=50, anchor=tk.CENTER)
+        self.tree.column("name", width=700)
+
+        self.tree.pack(fill=tk.BOTH, expand=True)
+
+        # 绑定点击事件
+        self.tree.bind("<Button-1>", self._on_click)
+
+    def load_test_data(self):
+        """加载测试数据"""
+        # 清空
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        self.checkbox_vars.clear()
+
+        # 加载所有测试数据
+        test_data_list = self.config_manager.get_test_data_list()
+
+        for td in test_data_list:
+            var = tk.BooleanVar(value=False)
+            item_id = self.tree.insert("", tk.END, values=("☐", td['name']))
+            self.checkbox_vars[item_id] = var
+
+    def _on_click(self, event):
+        """处理点击事件"""
+        region = self.tree.identify_region(event.x, event.y)
+
+        if region == "cell":
+            column = self.tree.identify_column(event.x)
+
+            if column == "#1":
+                item = self.tree.identify_row(event.y)
+
+                if item:
+                    var = self.checkbox_vars.get(item)
+                    if var:
+                        current_value = var.get()
+                        var.set(not current_value)
+
+                        new_value = "☑" if not current_value else "☐"
+                        self.tree.item(item, values=(new_value, *self.tree.item(item, "values")[1:]))
+
+                        self._update_select_all_button()
+
+    def _update_select_all_button(self):
+        """更新全选按钮状态（暂未实现UI更新）"""
+        pass
+
+    def toggle_select_all(self):
+        """全选/取消全选"""
+        all_items = self.tree.get_children()
+
+        if not all_items:
+            return
+
+        all_selected = all(self.checkbox_vars.get(item, tk.BooleanVar(value=False)).get()
+                          for item in all_items)
+
+        if all_selected:
+            for item in all_items:
+                var = self.checkbox_vars.get(item)
+                if var:
+                    var.set(False)
+                self.tree.item(item, values=("☐", *self.tree.item(item, "values")[1:]))
+        else:
+            for item in all_items:
+                var = self.checkbox_vars.get(item)
+                if var:
+                    var.set(True)
+                self.tree.item(item, values=("☑", *self.tree.item(item, "values")[1:]))
+
+    def start_batch_test(self):
+        """开始批量测试"""
+        # 获取选中的项
+        selected_items = []
+        for item in self.tree.get_children():
+            var = self.checkbox_vars.get(item)
+            if var and var.get():
+                selected_items.append(item)
+
+        if not selected_items:
+            messagebox.showwarning("警告", "请先勾选至少一条测试数据")
+            return
+
+        # 获取选中的测试数据
+        selected_names = []
+        for item in selected_items:
+            values = self.tree.item(item, "values")
+            selected_names.append(values[1])
+
+        # 加载测试数据
+        test_data_list = []
+        for name in selected_names:
+            test_data = self.config_manager.get_test_data_by_name(name)
+            if test_data:
+                test_data_list.append(test_data)
+
+        # 获取父窗口（执行评估窗口）
+        parent_window = self.window.master
+
+        # 关闭选择窗口
+        self.window.destroy()
+
+        # 开始批量评估（使用执行评估窗口作为父窗口）
+        BatchEvaluationExecutor(parent_window, self.evaluator_info, test_data_list, self.config_manager)
+
+    def center_window(self):
+        """窗口居中显示"""
+        self.window.update_idletasks()
+
+        width = self.window.winfo_width()
+        height = self.window.winfo_height()
+
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+
+        self.window.geometry(f'{width}x{height}+{x}+{y}')
+
+
+class BatchEvaluationExecutor:
+    """批量评估执行器"""
+
+    def __init__(self, parent, evaluator_info, test_data_list, config_manager):
+        self.evaluator_info = evaluator_info
+        self.test_data_list = test_data_list
+        self.config_manager = config_manager
+        self.results = []
+        self.current_index = 0
+
+        # 创建进度窗口
+        self.create_progress_window(parent)
+
+        # 开始执行评估
+        self.start_evaluation()
+
+    def create_progress_window(self, parent):
+        """创建进度窗口"""
+        self.progress_window = tk.Toplevel(parent)
+        self.progress_window.title("批量测试进行中")
+        self.progress_window.geometry("500x300")
+        self.progress_window.transient(parent)
+        self.progress_window.grab_set()
+
+        # 主框架
+        main_frame = ttk.Frame(self.progress_window, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # 标题
+        ttk.Label(
+            main_frame,
+            text="⏳ 批量测试进行中",
+            font=("Arial", 16, "bold")
+        ).pack(pady=(0, 20))
+
+        # 进度标签
+        self.progress_label = ttk.Label(
+            main_frame,
+            text=f"准备评估 0/{len(self.test_data_list)}",
+            font=("Arial", 11)
+        )
+        self.progress_label.pack(pady=10)
+
+        # 进度条
+        self.progress_bar = ttk.Progressbar(
+            main_frame,
+            mode='determinate',
+            maximum=len(self.test_data_list),
+            length=400
+        )
+        self.progress_bar.pack(pady=10)
+
+        # 当前数据名称
+        self.current_data_label = ttk.Label(
+            main_frame,
+            text="",
+            font=("Arial", 10),
+            foreground="gray",
+            wraplength=400
+        )
+        self.current_data_label.pack(pady=10)
+
+        # 居中显示
+        self.center_window()
+
+    def center_window(self):
+        """窗口居中显示"""
+        self.progress_window.update_idletasks()
+
+        width = self.progress_window.winfo_width()
+        height = self.progress_window.winfo_height()
+
+        screen_width = self.progress_window.winfo_screenwidth()
+        screen_height = self.progress_window.winfo_screenheight()
+
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+
+        self.progress_window.geometry(f'{width}x{height}+{x}+{y}')
+
+    def start_evaluation(self):
+        """开始评估"""
+        # 在后台线程执行
+        import threading
+        thread = threading.Thread(target=self._evaluate_all)
+        thread.daemon = True
+        thread.start()
+
+    def _evaluate_all(self):
+        """评估所有数据"""
+        try:
+            # 获取大模型配置
+            model_settings = self.config_manager.get_model_settings()
+
+            # 获取评估执行器
+            from evaluators import get_executor
+            executor = get_executor(self.evaluator_info)
+
+            # 逐个评估
+            for i, test_data in enumerate(self.test_data_list):
+                # 更新进度
+                self.progress_window.after(0, self._update_progress, i + 1, test_data['name'])
+
+                # 执行评估
+                result = executor.execute(
+                    test_data['question'],
+                    test_data['answer'],
+                    test_data.get('context', ''),
+                    model_settings
+                )
+
+                # 添加测试数据名称到结果中
+                result['test_data_name'] = test_data['name']
+                self.results.append(result)
+
+                # 打印调试信息
+                print(f"\n{'='*60}")
+                print(f"评估完成: {test_data['name']}")
+                print(f"Success: {result.get('success', False)}")
+                print(f"Score: {result.get('score', 0.0)}")
+                print(f"Passed: {result.get('passed', False)}")
+                if not result.get('success', False):
+                    print(f"Error: {result.get('error', 'Unknown error')}")
+                    print(f"Message: {result.get('message', 'No message')}")
+                print(f"{'='*60}\n")
+
+            # 评估完成，显示结果
+            self.progress_window.after(0, self._show_results)
+
+        except Exception as e:
+            import traceback
+            error_message = str(e)
+            error_traceback = traceback.format_exc()
+
+            self.progress_window.after(0, self._show_error, error_message, error_traceback)
+
+    def _update_progress(self, current, name):
+        """更新进度"""
+        self.progress_label.config(text=f"正在评估 {current}/{len(self.test_data_list)}")
+        self.progress_bar['value'] = current
+        self.current_data_label.config(text=f"当前：{name}")
+
+    def _show_results(self):
+        """显示结果"""
+        # 关闭进度窗口
+        self.progress_window.destroy()
+
+        # 打开结果窗口
+        BatchResultWindow(self.progress_window.master, self.results, self.evaluator_info)
+
+    def _show_error(self, error_message, error_traceback):
+        """显示错误"""
+        self.progress_window.destroy()
+        messagebox.showerror("评估失败", f"批量测试失败：\n\n{error_message}")
+
+
+class BatchResultWindow:
+    """批量测试结果窗口"""
+
+    def __init__(self, parent, results, evaluator_info):
+        self.results = results
+        self.evaluator_info = evaluator_info
+        self.current_index = 0
+
+        # 创建窗口
+        self.window = tk.Toplevel(parent)
+        self.window.title(f"批量测试结果 - {evaluator_info['name']}")
+        self.window.geometry("900x700")
+        self.window.transient(parent)
+
+        # 创建界面
+        self.create_interface()
+
+        # 显示第一条结果
+        self.display_result(0)
+
+        # 居中显示
+        self.center_window()
+
+    def create_interface(self):
+        """创建界面"""
+        # 主框架
+        main_frame = ttk.Frame(self.window, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # 顶部标题和导航
+        top_frame = ttk.Frame(main_frame)
+        top_frame.pack(fill=tk.X, pady=(0, 20))
+
+        # 标题
+        title_text = f"批量测试结果 - {self.evaluator_info['name']}"
+        ttk.Label(
+            top_frame,
+            text=title_text,
+            font=("Arial", 16, "bold")
+        ).pack(side=tk.LEFT)
+
+        # 导航按钮
+        nav_frame = ttk.Frame(top_frame)
+        nav_frame.pack(side=tk.RIGHT)
+
+        self.prev_button = ttk.Button(
+            nav_frame,
+            text="◀ 上一条",
+            command=self.show_previous,
+            width=10
+        )
+        self.prev_button.pack(side=tk.LEFT, padx=5)
+
+        # 结果计数
+        self.count_label = ttk.Label(
+            nav_frame,
+            text="",
+            font=("Arial", 11)
+        )
+        self.count_label.pack(side=tk.LEFT, padx=10)
+
+        self.next_button = ttk.Button(
+            nav_frame,
+            text="下一条 ▶",
+            command=self.show_next,
+            width=10
+        )
+        self.next_button.pack(side=tk.LEFT, padx=5)
+
+        # 创建滚动容器（复用result_popup_window的逻辑）
+        self.create_scrollable_content(main_frame)
+
+    def create_scrollable_content(self, parent):
+        """创建可滚动内容区域"""
+        # 创建Canvas
+        self.canvas = tk.Canvas(parent, highlightthickness=0)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # 创建滚动条
+        scrollbar = ttk.Scrollbar(parent, orient=tk.VERTICAL, command=self.canvas.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # 配置Canvas滚动
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+
+        # 创建可滚动框架
+        self.scrollable_frame = ttk.Frame(self.canvas)
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor=tk.NW)
+
+        # 绑定配置事件
+        self.scrollable_frame.bind("<Configure>", self._on_frame_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+
+        # 绑定鼠标滚轮事件
+        self._bind_mousewheel()
+
+    def _on_frame_configure(self, event):
+        """框架配置改变时更新滚动区域"""
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event):
+        """Canvas配置改变时调整框架宽度"""
+        canvas_width = event.width
+        self.canvas.itemconfig(self.canvas_window, width=canvas_width)
+
+    def _bind_mousewheel(self):
+        """绑定鼠标滚轮事件"""
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel)
+
+    def _on_mousewheel(self, event):
+        """鼠标滚轮事件处理"""
+        if event.num == 5 or event.delta < 0:
+            self.canvas.yview_scroll(1, "units")
+        elif event.num == 4 or event.delta > 0:
+            self.canvas.yview_scroll(-1, "units")
+
+    def display_result(self, index):
+        """显示指定索引的结果"""
+        if 0 <= index < len(self.results):
+            self.current_index = index
+            result = self.results[index]
+
+            # 更新计数标签
+            self.count_label.config(text=f"{index + 1} / {len(self.results)}")
+
+            # 清空内容
+            for widget in self.scrollable_frame.winfo_children():
+                widget.destroy()
+
+            # 创建结果内容（复用result_popup_window的显示逻辑）
+            self._create_result_content(result)
+
+    def _create_result_content(self, result):
+        """创建结果内容"""
+        # 直接创建结果内容，不使用ResultPopupWindow
+        content_frame = ttk.Frame(self.scrollable_frame, padding="20")
+        content_frame.pack(fill=tk.BOTH, expand=True)
+
+        # ========== 测试数据信息卡片 ==========
+        info_card = ttk.Frame(content_frame, relief=tk.RIDGE, borderwidth=2)
+        info_card.pack(fill=tk.X, pady=(0, 20))
+
+        # 卡片标题
+        card_header = ttk.Frame(info_card)
+        card_header.pack(fill=tk.X, padx=15, pady=(10, 5))
+
+        ttk.Label(
+            card_header,
+            text="📚 测试数据信息",
+            font=("Arial", 12, "bold"),
+            foreground="#4299E1"
+        ).pack(side=tk.LEFT)
+
+        # 测试数据名称
+        test_data_name = result.get('test_data_name', '未知数据')
+        ttk.Label(
+            info_card,
+            text=f"名称: {test_data_name}",
+            font=("Arial", 11, "bold")
+        ).pack(anchor=tk.W, padx=15, pady=(5, 10))
+
+        # 分隔线
+        ttk.Separator(info_card, orient=tk.HORIZONTAL).pack(fill=tk.X, padx=15, pady=5)
+
+        # 问题
+        ttk.Label(
+            info_card,
+            text="问题:",
+            font=("Arial", 10, "bold")
+        ).pack(anchor=tk.W, padx=15, pady=(10, 5))
+
+        question = result.get('input', {}).get('question', '无')
+        question_height = self._calculate_text_height(question)
+        question_text = tk.Text(
+            info_card,
+            height=question_height,
+            font=("Arial", 10),
+            wrap=tk.WORD,
+            relief=tk.FLAT,
+            bg="#F7FAFC"
+        )
+        question_text.pack(fill=tk.X, padx=15, pady=(0, 10))
+        question_text.insert(1.0, question)
+        question_text.config(state=tk.DISABLED)
+
+        # 回答
+        ttk.Label(
+            info_card,
+            text="回答:",
+            font=("Arial", 10, "bold")
+        ).pack(anchor=tk.W, padx=15, pady=(10, 5))
+
+        answer = result.get('input', {}).get('answer', '无')
+        answer_height = self._calculate_text_height(answer)
+        answer_text = tk.Text(
+            info_card,
+            height=answer_height,
+            font=("Arial", 10),
+            wrap=tk.WORD,
+            relief=tk.FLAT,
+            bg="#F7FAFC"
+        )
+        answer_text.pack(fill=tk.X, padx=15, pady=(0, 10))
+        answer_text.insert(1.0, answer)
+        answer_text.config(state=tk.DISABLED)
+
+        # 上下文（如果有）
+        context = result.get('input', {}).get('context', '')
+        if context:
+            ttk.Label(
+                info_card,
+                text="上下文:",
+                font=("Arial", 10, "bold")
+            ).pack(anchor=tk.W, padx=15, pady=(10, 5))
+
+            context_height = self._calculate_text_height(context)
+            context_text = tk.Text(
+                info_card,
+                height=context_height,
+                font=("Arial", 10),
+                wrap=tk.WORD,
+                relief=tk.FLAT,
+                bg="#F7FAFC"
+            )
+            context_text.pack(fill=tk.X, padx=15, pady=(0, 15))
+            context_text.insert(1.0, context)
+            context_text.config(state=tk.DISABLED)
+        else:
+            # 如果没有上下文，添加一些底部间距
+            ttk.Label(info_card, text="").pack(pady=(0, 15))
+
+        # ========== 分隔线 ==========
+        ttk.Separator(content_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=20)
+
+        # ========== 评估结果 ==========
+        result_header = ttk.Label(
+            content_frame,
+            text="📊 评估结果",
+            font=("Arial", 14, "bold")
+        )
+        result_header.pack(anchor=tk.W, pady=(0, 15))
+
+        # 显示评估结果（复用result_popup_window的逻辑）
+        from windows.result_popup_window import ResultPopupWindow
+
+        # 创建一个辅助方法来显示结果
+        self._display_evaluation_result(content_frame, result)
+
+    def _display_evaluation_result(self, parent, result):
+        """显示评估结果"""
+        success = result.get('success', False)
+        score = result.get('score', 0.0)
+        passed = result.get('passed', False)
+        message = result.get('message', '')
+        reason = result.get('reason', '')
+        error = result.get('error', '')
+
+        # 结果状态
+        status_frame = ttk.Frame(parent)
+        status_frame.pack(fill=tk.X, pady=(0, 20))
+
+        if success:
+            if passed:
+                status_text = "✅ 通过"
+                status_color = "#48BB78"
+            else:
+                status_text = "❌ 失败"
+                status_color = "#F56565"
+
+            ttk.Label(
+                status_frame,
+                text=status_text,
+                font=("Arial", 20, "bold"),
+                foreground=status_color
+            ).pack(side=tk.LEFT, padx=(0, 20))
+
+            ttk.Label(
+                status_frame,
+                text=f"得分: {score:.3f}",
+                font=("Arial", 16, "bold"),
+                foreground="#2D3748"
+            ).pack(side=tk.LEFT)
+        else:
+            # 显示失败状态和错误信息
+            ttk.Label(
+                status_frame,
+                text="❌ 评估失败",
+                font=("Arial", 20, "bold"),
+                foreground="#F56565"
+            ).pack(side=tk.LEFT, padx=(0, 20))
+
+            ttk.Label(
+                status_frame,
+                text=f"得分: {score:.3f}",
+                font=("Arial", 16, "bold"),
+                foreground="#2D3748"
+            ).pack(side=tk.LEFT)
+
+        # 分隔线
+        ttk.Separator(parent, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=15)
+
+        # 如果有错误信息，优先显示错误
+        if not success and error:
+            ttk.Label(
+                parent,
+                text="⚠️ 错误信息:",
+                font=("Arial", 12, "bold"),
+                foreground="#E53E3E"
+            ).pack(anchor=tk.W, pady=(10, 5))
+
+            error_height = self._calculate_text_height(error)
+            error_text = tk.Text(
+                parent,
+                height=error_height,
+                font=("Arial", 10),
+                wrap=tk.WORD,
+                relief=tk.FLAT,
+                bg="#FED7D7",
+                padx=10,
+                pady=10
+            )
+            error_text.pack(fill=tk.X, pady=(0, 20))
+            error_text.insert(1.0, error)
+            error_text.config(state=tk.DISABLED)
+
+        # 评估原因（中英文对照）
+        if success and reason:
+            ttk.Label(
+                parent,
+                text="📝 评估原因:",
+                font=("Arial", 12, "bold")
+            ).pack(anchor=tk.W, pady=(10, 5))
+
+            reason_height = self._calculate_text_height(reason)
+            reason_text = tk.Text(
+                parent,
+                height=reason_height,
+                font=("Arial", 10),
+                wrap=tk.WORD,
+                relief=tk.FLAT,
+                bg="#F7FAFC",
+                padx=10,
+                pady=10
+            )
+            reason_text.pack(fill=tk.X, pady=(0, 20))
+            reason_text.insert(1.0, reason)
+            reason_text.config(state=tk.DISABLED)
+
+            # 如果有verbose_logs（英文原文），也显示出来
+            verbose_logs = result.get('verbose_logs', '')
+            if verbose_logs:
+                ttk.Label(
+                    parent,
+                    text="📝 英文原文 (Verbose Logs):",
+                    font=("Arial", 12, "bold"),
+                    foreground="#718096"
+                ).pack(anchor=tk.W, pady=(10, 5))
+
+                # 动态计算高度
+                calculated_height = self._calculate_text_height(verbose_logs)
+
+                verbose_text = tk.Text(
+                    parent,
+                    height=calculated_height,
+                    font=("Arial", 10),
+                    wrap=tk.WORD,
+                    relief=tk.FLAT,
+                    bg="#EDF2F7",
+                    padx=10,
+                    pady=10
+                )
+                verbose_text.pack(fill=tk.X, pady=(0, 20))
+                verbose_text.insert(1.0, verbose_logs)
+                verbose_text.config(state=tk.DISABLED)
+        elif not success and message:
+            # 如果评估失败但没有error字段，显示message
+            ttk.Label(
+                parent,
+                text="📝 失败原因:",
+                font=("Arial", 12, "bold")
+            ).pack(anchor=tk.W, pady=(10, 5))
+
+            # 动态计算高度
+            calculated_height = self._calculate_text_height(message)
+
+            message_text = tk.Text(
+                parent,
+                height=calculated_height,
+                font=("Arial", 10),
+                wrap=tk.WORD,
+                relief=tk.FLAT,
+                bg="#FED7D7",
+                padx=10,
+                pady=10
+            )
+            message_text.pack(fill=tk.X, pady=(0, 20))
+            message_text.insert(1.0, message)
+            message_text.config(state=tk.DISABLED)
+
+        # 注意：输入数据已经在顶部的"测试数据信息卡片"中显示了，这里不再重复显示
+
+    def _calculate_text_height(self, text):
+        """计算Text组件的动态高度"""
+        if not text:
+            return 5
+
+        # 计算行数
+        lines = text.count('\n') + 1
+
+        # 计算新高度：最少5行，超过2行后 = 行数 + 3
+        if lines <= 2:
+            new_height = 5
+        else:
+            new_height = lines + 3
+
+        # 限制最大高度，避免过高
+        return min(new_height, 25)
+
+    def show_previous(self):
+        """显示上一条结果"""
+        if self.current_index > 0:
+            self.display_result(self.current_index - 1)
+        else:
+            # 循环到最后一条
+            self.display_result(len(self.results) - 1)
+
+    def show_next(self):
+        """显示下一条结果"""
+        if self.current_index < len(self.results) - 1:
+            self.display_result(self.current_index + 1)
+        else:
+            # 循环到第一条
+            self.display_result(0)
 
     def center_window(self):
         """窗口居中显示"""

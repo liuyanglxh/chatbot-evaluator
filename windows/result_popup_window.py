@@ -54,12 +54,51 @@ class ResultPopupWindow:
 
     def create_interface(self):
         """创建界面"""
-        # 主容器
-        main_container = tk.Frame(self.window, bg="#F7FAFC")
+        # 创建可滚动容器
+        canvas = tk.Canvas(self.window, bg="#F7FAFC", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(self.window, orient="vertical", command=canvas.yview)
+        self.scrollable_frame = tk.Frame(canvas, bg="#F7FAFC")
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # 布局Canvas和Scrollbar
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(20, 0), pady=20)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=20, padx=(0, 20))
+
+        # 添加鼠标滚轮支持
+        def _on_mousewheel(event):
+            # Windows/macOS: event.delta 是正值或负值
+            # Linux: Button-4 (向上) 或 Button-5 (向下)
+            if event.num == 4 or event.delta > 0:
+                canvas.yview_scroll(-1, "units")
+            elif event.num == 5 or event.delta < 0:
+                canvas.yview_scroll(1, "units")
+
+        # 绑定到canvas和scrollable_frame，确保在任何位置都能滚动
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)      # Windows/macOS
+        canvas.bind_all("<Button-4>", _on_mousewheel)        # Linux 向上
+        canvas.bind_all("<Button-5>", _on_mousewheel)        # Linux 向下
+
+        # 也绑定到scrollable_frame，确保鼠标在frame上时也能滚动
+        self.scrollable_frame.bind("<MouseWheel>", _on_mousewheel)
+        self.scrollable_frame.bind("<Button-4>", _on_mousewheel)
+        self.scrollable_frame.bind("<Button-5>", _on_mousewheel)
+
+        # 主容器（在scrollable_frame中）
+        main_container = tk.Frame(self.scrollable_frame, bg="#F7FAFC")
         main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
 
         # ========== 标题区域 ==========
         self._create_header(main_container)
+
+        # ========== 输入数据卡片 ==========
+        self._create_input_data_card(main_container)
 
         # 上部区域（状态、分数、评估器信息）
         top_section = tk.Frame(main_container, bg="#F7FAFC")
@@ -98,6 +137,116 @@ class ResultPopupWindow:
         # 分隔线
         separator = ttk.Separator(header_frame, orient=tk.HORIZONTAL)
         separator.pack(fill=tk.X, pady=(10, 0))
+
+    def _create_input_data_card(self, parent):
+        """创建输入数据卡片"""
+        # 获取输入数据
+        input_data = self.result_data.get('input', {})
+
+        # 如果没有输入数据，跳过
+        if not input_data:
+            return
+
+        question = input_data.get('question', '')
+        answer = input_data.get('answer', '')
+        context = input_data.get('context', '')
+
+        # 卡片容器
+        card_frame = tk.Frame(parent, bg="white", relief=tk.RAISED, bd=1)
+        card_frame.pack(fill=tk.X, pady=(0, 15))
+
+        # 内边距
+        content_frame = tk.Frame(card_frame, bg="white", padx=20, pady=15)
+        content_frame.pack(fill=tk.BOTH, expand=True)
+
+        # 标题
+        title_label = tk.Label(
+            content_frame,
+            text="📥 输入数据",
+            font=("Arial", 14, "bold"),
+            bg="white",
+            fg="#4A5568"
+        )
+        title_label.pack(anchor=tk.W, pady=(0, 10))
+
+        # 问题
+        question_label = tk.Label(
+            content_frame,
+            text="❓ 问题:",
+            font=("Arial", 11, "bold"),
+            bg="white",
+            fg="#2D3748",
+            anchor=tk.W
+        )
+        question_label.pack(fill=tk.X, pady=(5, 0))
+
+        question_text = tk.Text(
+            content_frame,
+            font=("Arial", 10),
+            bg="#F7FAFC",
+            fg="#2D3748",
+            relief=tk.FLAT,
+            padx=10,
+            pady=8,
+            wrap=tk.WORD,
+            height=3
+        )
+        question_text.pack(fill=tk.X, pady=(0, 10))
+        question_text.insert(1.0, question)
+        question_text.config(state=tk.DISABLED)
+
+        # 回答
+        answer_label = tk.Label(
+            content_frame,
+            text="💬 回答:",
+            font=("Arial", 11, "bold"),
+            bg="white",
+            fg="#2D3748",
+            anchor=tk.W
+        )
+        answer_label.pack(fill=tk.X, pady=(5, 0))
+
+        answer_text = tk.Text(
+            content_frame,
+            font=("Arial", 10),
+            bg="#F7FAFC",
+            fg="#2D3748",
+            relief=tk.FLAT,
+            padx=10,
+            pady=8,
+            wrap=tk.WORD,
+            height=5
+        )
+        answer_text.pack(fill=tk.X, pady=(0, 10))
+        answer_text.insert(1.0, answer)
+        answer_text.config(state=tk.DISABLED)
+
+        # 上下文（如果有）
+        if context:
+            context_label = tk.Label(
+                content_frame,
+                text="📚 上下文:",
+                font=("Arial", 11, "bold"),
+                bg="white",
+                fg="#2D3748",
+                anchor=tk.W
+            )
+            context_label.pack(fill=tk.X, pady=(5, 0))
+
+            context_text = tk.Text(
+                content_frame,
+                font=("Arial", 10),
+                bg="#F7FAFC",
+                fg="#2D3748",
+                relief=tk.FLAT,
+                padx=10,
+                pady=8,
+                wrap=tk.WORD,
+                height=4
+            )
+            context_text.pack(fill=tk.X, pady=(0, 10))
+            context_text.insert(1.0, context)
+            context_text.config(state=tk.DISABLED)
 
     def _create_status_card(self, parent):
         """创建状态卡片"""
@@ -289,13 +438,13 @@ class ResultPopupWindow:
         """创建评估原因卡片 - 支持中英文对照"""
         # 卡片容器
         card_frame = tk.Frame(parent, bg="white", relief=tk.RAISED, bd=1)
-        card_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+        card_frame.pack(fill=tk.X, pady=(0, 15))  # 改为 fill=tk.X，不 expand
 
         # 内边距
         content_frame = tk.Frame(card_frame, bg="white", padx=20, pady=15)
         content_frame.pack(fill=tk.BOTH, expand=True)
 
-        # 标题行容器（不expand，只占据需要的空间）
+        # 标题行容器
         title_row = tk.Frame(content_frame, bg="white")
         title_row.pack(fill=tk.X, pady=(0, 10))
 
@@ -331,7 +480,8 @@ class ResultPopupWindow:
             chinese_content = f"{'✅ 通过' if passed else '❌ 未通过'} | 得分: {score:.3f} / {threshold}\n\n"
             chinese_content += "[正在翻译...]"
 
-            chinese_text = scrolledtext.ScrolledText(
+            # 使用普通Text，不带滚动条
+            chinese_text = tk.Text(
                 chinese_tab,
                 font=("Arial", 11),
                 bg="#F7FAFC",
@@ -339,8 +489,7 @@ class ResultPopupWindow:
                 relief=tk.FLAT,
                 padx=10,
                 pady=10,
-                wrap=tk.WORD,
-                height=25  # 设置最小高度为25行
+                wrap=tk.WORD
             )
             chinese_text.pack(fill=tk.BOTH, expand=True)
             chinese_text.insert(1.0, chinese_content)
@@ -359,7 +508,8 @@ class ResultPopupWindow:
             english_content = f"{'✅ PASS' if passed else '❌ FAIL'} | Score: {score:.3f} / {threshold}\n\n"
             english_content += reason
 
-            english_text = scrolledtext.ScrolledText(
+            # 使用普通Text，不带滚动条
+            english_text = tk.Text(
                 english_tab,
                 font=("Arial", 11),
                 bg="#F7FAFC",
@@ -367,8 +517,7 @@ class ResultPopupWindow:
                 relief=tk.FLAT,
                 padx=10,
                 pady=10,
-                wrap=tk.WORD,
-                height=25  # 设置最小高度为25行
+                wrap=tk.WORD
             )
             english_text.pack(fill=tk.BOTH, expand=True)
             english_text.insert(1.0, english_content)
@@ -396,7 +545,8 @@ class ResultPopupWindow:
             bilingual_content += "="*60 + "\n"
             bilingual_content += "[正在翻译...]\n"
 
-            bilingual_text = scrolledtext.ScrolledText(
+            # 使用普通Text，不带滚动条
+            bilingual_text = tk.Text(
                 bilingual_tab,
                 font=("Arial", 11),
                 bg="#F7FAFC",
@@ -404,8 +554,7 @@ class ResultPopupWindow:
                 relief=tk.FLAT,
                 padx=10,
                 pady=10,
-                wrap=tk.WORD,
-                height=25  # 设置最小高度为25行
+                wrap=tk.WORD
             )
             bilingual_text.pack(fill=tk.BOTH, expand=True)
             bilingual_text.insert(1.0, bilingual_content)
@@ -424,7 +573,8 @@ class ResultPopupWindow:
             chinese_content = f"{'✅ 通过' if passed else '❌ 未通过'} | 得分: {score:.3f} / {threshold}\n\n"
             chinese_content += reason
 
-            chinese_text = scrolledtext.ScrolledText(
+            # 使用普通Text，不带滚动条
+            chinese_text = tk.Text(
                 only_tab,
                 font=("Arial", 11),
                 bg="#F7FAFC",
@@ -432,8 +582,7 @@ class ResultPopupWindow:
                 relief=tk.FLAT,
                 padx=10,
                 pady=10,
-                wrap=tk.WORD,
-                height=25  # 设置最小高度为25行
+                wrap=tk.WORD
             )
             chinese_text.pack(fill=tk.BOTH, expand=True)
             chinese_text.insert(1.0, chinese_content)

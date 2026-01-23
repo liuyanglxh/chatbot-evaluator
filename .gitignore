@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# DeepEval
+.deepeval/
+
+# Configuration files (contain sensitive data)
+config.json
+test_data.json
+
+# Platform specific config directories
+# Windows: AppData/Roaming/llm_evaluator
+# macOS: Library/Application Support/llm_evaluator
+# Linux: .config/llm_evaluator
+
+# Keep directory structure but ignore content
+# Uncomment the line below if you want to keep the directory
+# !llm_evaluator/.gitkeep
+
+# Logs
+*.log
+
+# Test files
+test_*.py
+*_test.py
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+
+# Documentation drafts
+*.md.backup
+DRAFT_*.md
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini

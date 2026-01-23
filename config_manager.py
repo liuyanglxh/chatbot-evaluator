@@ -6,6 +6,7 @@
 import json
 import os
 import platform
+import uuid
 from pathlib import Path
 
 
@@ -101,6 +102,11 @@ class ConfigManager:
     def add_evaluator(self, evaluator_config):
         """添加评估器"""
         config = self.load_config()
+
+        # 如果没有ID，生成新的UUID
+        if "id" not in evaluator_config:
+            evaluator_config["id"] = str(uuid.uuid4())
+
         config["evaluators"].append(evaluator_config)
         self.save_config(config)
         return True
@@ -108,10 +114,31 @@ class ConfigManager:
     def get_evaluators(self):
         """获取所有评估器"""
         config = self.load_config()
-        return config.get("evaluators", [])
 
-    def remove_evaluator(self, evaluator_name):
-        """删除评估器"""
+        # 迁移：为没有ID的评估器生成ID
+        evaluators = config.get("evaluators", [])
+        for evaluator in evaluators:
+            if "id" not in evaluator:
+                evaluator["id"] = str(uuid.uuid4())
+
+        # 如果有迁移，保存回文件
+        if any("id" not in e for e in config.get("evaluators", [])):
+            self.save_config(config)
+
+        return evaluators
+
+    def remove_evaluator(self, evaluator_id):
+        """删除评估器（根据ID）"""
+        config = self.load_config()
+        config["evaluators"] = [
+            e for e in config["evaluators"]
+            if e.get("id") != evaluator_id
+        ]
+        self.save_config(config)
+        return True
+
+    def remove_evaluator_by_name(self, evaluator_name):
+        """删除评估器（根据名称）- 兼容旧方法"""
         config = self.load_config()
         config["evaluators"] = [
             e for e in config["evaluators"]
@@ -119,6 +146,21 @@ class ConfigManager:
         ]
         self.save_config(config)
         return True
+
+    def update_evaluator(self, evaluator_id, updated_config):
+        """更新评估器（根据ID）"""
+        config = self.load_config()
+
+        # 找到要更新的评估器索引
+        for i, evaluator in enumerate(config["evaluators"]):
+            if evaluator.get("id") == evaluator_id:
+                # 保留原有的ID
+                updated_config["id"] = evaluator_id
+                config["evaluators"][i] = updated_config
+                self.save_config(config)
+                return True
+
+        return False
 
     # ========== 测试数据管理 ==========
 
@@ -141,6 +183,10 @@ class ConfigManager:
         if "test_data" not in config:
             config["test_data"] = []
 
+        # 如果没有ID，生成新的UUID
+        if "id" not in test_data:
+            test_data["id"] = str(uuid.uuid4())
+
         config["test_data"].append(test_data)
         self.save_config(config)
         return True
@@ -148,10 +194,34 @@ class ConfigManager:
     def get_test_data_list(self):
         """获取所有测试数据"""
         config = self.load_config()
-        return config.get("test_data", [])
 
-    def remove_test_data(self, test_name):
-        """删除测试数据"""
+        # 迁移：为没有ID的测试数据生成ID
+        test_data_list = config.get("test_data", [])
+        need_save = False
+
+        for td in test_data_list:
+            if "id" not in td:
+                td["id"] = str(uuid.uuid4())
+                need_save = True
+
+        # 如果有迁移，保存回文件
+        if need_save:
+            self.save_config(config)
+
+        return test_data_list
+
+    def remove_test_data(self, test_data_id):
+        """删除测试数据（根据ID）"""
+        config = self.load_config()
+        config["test_data"] = [
+            td for td in config.get("test_data", [])
+            if td.get("id") != test_data_id
+        ]
+        self.save_config(config)
+        return True
+
+    def remove_test_data_by_name(self, test_name):
+        """删除测试数据（根据名称）- 兼容旧方法"""
         config = self.load_config()
         config["test_data"] = [
             td for td in config.get("test_data", [])
@@ -167,3 +237,37 @@ class ConfigManager:
             if td["name"] == test_name:
                 return td
         return None
+
+    def get_test_data_by_id(self, test_data_id):
+        """根据ID获取测试数据"""
+        test_data_list = self.get_test_data_list()
+        for td in test_data_list:
+            if td.get("id") == test_data_id:
+                return td
+        return None
+
+    def update_test_data(self, test_data_id, updated_data):
+        """更新测试数据（根据ID）"""
+        config = self.load_config()
+
+        # 找到要更新的测试数据索引
+        for i, td in enumerate(config["test_data"]):
+            if td.get("id") == test_data_id:
+                # 保留原有的ID
+                updated_data["id"] = test_data_id
+                config["test_data"][i] = updated_data
+                self.save_config(config)
+                return True
+
+        return False
+
+    def save_font_size(self, font_size: int):
+        """保存字体大小设置"""
+        config = self.load_config()
+        config["font_size"] = font_size
+        self.save_config(config)
+
+    def get_font_size(self) -> int:
+        """获取字体大小设置"""
+        config = self.load_config()
+        return config.get("font_size", 11)  # 默认11号字体

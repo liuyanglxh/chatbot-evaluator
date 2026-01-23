@@ -72,8 +72,8 @@ class DeepEvalExecutor:
 
             result = evaluate(test_cases=[test_case], metrics=[metric])
 
-            # 6. 解析结果
-            return self._parse_result(result)
+            # 6. 解析结果（传入原始数据）
+            return self._parse_result(result, question, answer, context)
 
         except Exception as e:
             return {
@@ -130,7 +130,7 @@ class DeepEvalExecutor:
             )
 
         # Answer Relevancy (答案相关性)
-        elif metric_type == "Answer Relevancy":
+        elif metric_type == "Answer Relevancy" or metric_type == "答案相关性":
             return AnswerRelevancyMetric(
                 threshold=self.threshold,
                 model=model,
@@ -187,9 +187,15 @@ class DeepEvalExecutor:
             )
 
         # GEval (自定义评估)
-        elif metric_type.startswith("GEval") or "Custom" in metric_type:
-            # 根据 metric_type 确定使用哪个标准
-            criteria = self._get_custom_criteria(metric_type)
+        elif metric_type.startswith("GEval") or "Custom" in metric_type or \
+             "Conversation Completeness" in metric_type or "对话完整性" in metric_type or \
+             "Role Adherence" in metric_type or "角色遵循" in metric_type or \
+             "Correctness" in metric_type or "正确性" in metric_type:
+            # 优先使用配置中的criteria，如果没有则使用默认值
+            criteria = self.evaluator_info.get("criteria", "")
+            if not criteria:
+                criteria = self._get_custom_criteria(metric_type)
+
             evaluation_params = self._get_evaluation_params(metric_type)
 
             return GEval(
@@ -198,8 +204,8 @@ class DeepEvalExecutor:
                 evaluation_params=evaluation_params,
                 threshold=self.threshold,
                 model=model,
-                verbose_mode=True,
-                include_reason=True
+                verbose_mode=True
+                # 注意：GEval不支持include_reason参数
             )
 
         # 默认使用 Faithfulness
@@ -249,6 +255,55 @@ class DeepEvalExecutor:
 
 请根据此标准评分（0-1分）。"""
 
+        elif "Conversation Completeness" in metric_type or "对话完整性" in metric_type:
+            return """评估对话回答的完整性和质量：
+
+**评估维度：**
+
+1. **信息完整性（40%）：**
+   - 是否回答了用户问题的所有方面
+   - 是否提供了必要的关键信息
+   - 是否遗漏了重要细节
+
+2. **逻辑连贯性（30%）：**
+   - 回答是否前后一致、逻辑清晰
+   - 论述是否有条理、层次分明
+   - 是否存在自相矛盾的内容
+
+3. **内容充分性（30%）：**
+   - 解释是否充分、易于理解
+   - 是否提供了具体的例子或说明
+   - 是否避免了过于简略或含糊
+
+**评分标准：**
+
+**1分（0.0-0.2）：不完整**
+- 回答严重不完整，只回答了问题的很小一部分
+- 缺少关键信息，用户需要多次追问
+- 逻辑混乱，前后矛盾
+
+**2分（0.2-0.4）：较不完整**
+- 回答了部分问题，但遗漏重要信息
+- 逻辑基本清楚，但有些地方不够连贯
+- 内容不够充分，需要补充说明
+
+**3分（0.4-0.6）：中等完整**
+- 回答了问题的主要方面，但细节不够
+- 逻辑基本清晰，偶有不连贯之处
+- 内容基本充分，但可以更详细
+
+**4分（0.6-0.8）：较完整**
+- 回答了问题的大部分方面，细节较完整
+- 逻辑清晰连贯，论述有条理
+- 内容充分，提供了适当的解释
+
+**5分（0.8-1.0）：完整**
+- 全面回答了问题的所有方面，信息完整
+- 逻辑清晰严密，论述层次分明
+- 内容非常充分，解释详细易懂
+
+请根据以上标准评估对话完整性（0-1分）。"""
+
         else:
             return """请评估回答的质量，考虑准确性、相关性和完整性。"""
 
@@ -259,10 +314,12 @@ class DeepEvalExecutor:
             return [LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT]
         elif "Correctness" in metric_type or "正确性" in metric_type:
             return [LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT, LLMTestCaseParams.RETRIEVAL_CONTEXT]
+        elif "Conversation Completeness" in metric_type or "对话完整性" in metric_type:
+            return [LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT]
         else:
             return [LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT]
 
-    def _parse_result(self, result) -> Dict[str, Any]:
+    def _parse_result(self, result, question: str, answer: str, context: str) -> Dict[str, Any]:
         """解析评估结果"""
         try:
             # 获取测试结果
@@ -310,12 +367,18 @@ class DeepEvalExecutor:
                 print(f"  前500字符: {verbose_logs[:500]}")
             print(f"{'='*60}\n")
 
-            # 构建详细信息
+            # 构建详细信息（包含输入数据）
             detail_info = {
+                'success': True,
                 'score': score,
                 'passed': passed,
                 'reason': reason,
-                'verbose_logs': verbose_logs
+                'verbose_logs': verbose_logs,
+                'input': {  # 新增：包含输入数据
+                    'question': question,
+                    'answer': answer,
+                    'context': context
+                }
             }
 
             # 构建消息
@@ -336,7 +399,12 @@ class DeepEvalExecutor:
                 'message': message,
                 'reason': reason,
                 'verbose_logs': verbose_logs,  # 添加详细日志
-                'is_english': is_english
+                'is_english': is_english,
+                'input': {  # 添加输入数据
+                    'question': question,
+                    'answer': answer,
+                    'context': context
+                }
             }
 
         except Exception as e:

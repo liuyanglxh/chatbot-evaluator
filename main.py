@@ -89,6 +89,15 @@ class EvaluatorGUI:
         )
         model_settings_btn.pack(pady=5, anchor=tk.W)
 
+        # 字体设置按钮
+        font_settings_btn = ttk.Button(
+            parent,
+            text="🔤 字体设置",
+            command=self.open_font_settings,
+            width=25
+        )
+        font_settings_btn.pack(pady=5, anchor=tk.W)
+
         # 分隔线
         separator1 = ttk.Separator(parent, orient=tk.HORIZONTAL)
         separator1.pack(fill=tk.X, pady=15)
@@ -219,6 +228,11 @@ class EvaluatorGUI:
         """打开大模型设置窗口"""
         from windows.model_settings_window import ModelSettingsWindow
         ModelSettingsWindow(self.root)
+
+    def open_font_settings(self):
+        """打开字体设置窗口"""
+        from windows.font_settings_window import FontSettingsWindow
+        FontSettingsWindow(self.root)
 
     def open_add_evaluator(self):
         """打开添加评估器窗口"""
