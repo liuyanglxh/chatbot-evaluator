@@ -513,7 +513,7 @@ class ResultPopupWindow:
             # 后台翻译
             self._translate_reason(reason, score, threshold, passed)
 
-        # ===== Tab 2: 英文原文 =====
+        # ===== Tab 2: 英文结果 =====
         if is_english:
             english_tab = ttk.Frame(self.reason_notebook)
             self.reason_notebook.add(english_tab, text="🇺🇸 English")
@@ -549,8 +549,8 @@ class ResultPopupWindow:
 
             bilingual_content = score_line + "\n\n"
 
-            # 英文原文
-            bilingual_content += "【英文原文】\n"
+            # 框架返回的原文
+            bilingual_content += "【框架返回的原文】\n"
             bilingual_content += "="*60 + "\n"
             bilingual_content += reason + "\n\n"
 
@@ -941,8 +941,8 @@ class ResultPopupWindow:
 
         bilingual_content = score_line + "\n\n"
 
-        # 英文原文
-        bilingual_content += "【英文原文】\n"
+        # 框架返回的原文
+        bilingual_content += "【框架返回的原文】\n"
         bilingual_content += "="*60 + "\n"
         bilingual_content += original + "\n\n"
 

@@ -1260,12 +1260,12 @@ class BatchResultWindow:
             reason_text.insert(1.0, reason)
             reason_text.config(state=tk.DISABLED)
 
-            # 如果有verbose_logs（英文原文），也显示出来
+            # 如果有verbose_logs（框架返回的原文），也显示出来
             verbose_logs = result.get('verbose_logs', '')
             if verbose_logs:
                 ttk.Label(
                     parent,
-                    text="📝 英文原文 (Verbose Logs):",
+                    text="📝 框架返回的原文:",
                     font=("Arial", 12, "bold"),
                     foreground="#718096"
                 ).pack(anchor=tk.W, pady=(10, 5))

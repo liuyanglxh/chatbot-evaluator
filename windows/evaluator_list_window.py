@@ -201,12 +201,27 @@ class EvaluatorListWindow:
         item = self.tree.item(selection[0])
         values = item['values']
 
-        evaluator_info = {
-            'name': values[0],
-            'framework': values[1],
-            'metric_type': values[2],
-            'threshold': values[3]
-        }
+        # 获取评估器ID，然后加载完整数据
+        evaluator_id = self.evaluator_id_map.get(selection[0])
+
+        if not evaluator_id:
+            messagebox.showerror("错误", "无法获取评估器ID")
+            return
+
+        # 从配置中加载完整的评估器数据（包含scoring_rules等）
+        evaluators = self.config_manager.get_evaluators()
+        evaluator_data = None
+        for evaluator in evaluators:
+            if evaluator.get("id") == evaluator_id:
+                evaluator_data = evaluator
+                break
+
+        if not evaluator_data:
+            messagebox.showerror("错误", "无法加载评估器数据")
+            return
+
+        # 使用完整的评估器数据
+        evaluator_info = evaluator_data
 
         # 打开评估执行窗口
         from windows.evaluation_execution_window import EvaluationExecutionWindow
