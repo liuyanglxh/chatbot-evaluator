@@ -57,10 +57,16 @@ class EvaluatorGUI:
         paned_window.add(left_frame, minsize=200, width=250)
 
         # 左侧标题
+        # 获取菜单栏字体大小
+        from config_manager import ConfigManager
+        config_manager = ConfigManager()
+        menu_font_size = config_manager.get_menu_font_size()
+        title_font_size = menu_font_size + 5  # 标题比菜单项大5号
+
         left_title = ttk.Label(
             left_frame,
             text="功能菜单",
-            font=("Arial", 16, "bold")
+            font=("Arial", title_font_size, "bold")
         )
         left_title.pack(pady=(0, 20))
 
@@ -76,8 +82,17 @@ class EvaluatorGUI:
 
     def create_menu_buttons(self, parent):
         """创建左侧菜单按钮"""
+        # 获取菜单栏字体大小
+        from config_manager import ConfigManager
+        config_manager = ConfigManager()
+        menu_font_size = config_manager.get_menu_font_size()
+
+        # 配置ttk按钮样式
+        style = ttk.Style()
+        style.configure("Menu.TButton", font=("Arial", menu_font_size))
+
         # 设置组
-        settings_label = ttk.Label(parent, text="设置", font=("Arial", 12, "bold"))
+        settings_label = ttk.Label(parent, text="设置", font=("Arial", menu_font_size, "bold"))
         settings_label.pack(anchor=tk.W, pady=(10, 5))
 
         # 大模型设置按钮
@@ -85,7 +100,8 @@ class EvaluatorGUI:
             parent,
             text="🔧 大模型设置",
             command=self.open_model_settings,
-            width=25
+            width=25,
+            style="Menu.TButton"
         )
         model_settings_btn.pack(pady=5, anchor=tk.W)
 
@@ -94,7 +110,8 @@ class EvaluatorGUI:
             parent,
             text="🔤 字体设置",
             command=self.open_font_settings,
-            width=25
+            width=25,
+            style="Menu.TButton"
         )
         font_settings_btn.pack(pady=5, anchor=tk.W)
 
@@ -103,7 +120,7 @@ class EvaluatorGUI:
         separator1.pack(fill=tk.X, pady=15)
 
         # 评估器组
-        evaluator_label = ttk.Label(parent, text="评估器", font=("Arial", 12, "bold"))
+        evaluator_label = ttk.Label(parent, text="评估器", font=("Arial", menu_font_size, "bold"))
         evaluator_label.pack(anchor=tk.W, pady=(0, 5))
 
         # 添加评估器按钮
@@ -111,7 +128,8 @@ class EvaluatorGUI:
             parent,
             text="➕ 添加评估器",
             command=self.open_add_evaluator,
-            width=25
+            width=25,
+            style="Menu.TButton"
         )
         add_evaluator_btn.pack(pady=5, anchor=tk.W)
 
@@ -120,7 +138,8 @@ class EvaluatorGUI:
             parent,
             text="📋 查看评估器",
             command=self.open_evaluator_list,
-            width=25
+            width=25,
+            style="Menu.TButton"
         )
         list_evaluator_btn.pack(pady=5, anchor=tk.W)
 
@@ -129,7 +148,7 @@ class EvaluatorGUI:
         separator2.pack(fill=tk.X, pady=15)
 
         # 测试数据组
-        test_data_label = ttk.Label(parent, text="测试数据", font=("Arial", 12, "bold"))
+        test_data_label = ttk.Label(parent, text="测试数据", font=("Arial", menu_font_size, "bold"))
         test_data_label.pack(anchor=tk.W, pady=(0, 5))
 
         # 测试数据管理按钮
@@ -137,7 +156,8 @@ class EvaluatorGUI:
             parent,
             text="📚 测试数据管理",
             command=self.open_test_data_manager,
-            width=25
+            width=25,
+            style="Menu.TButton"
         )
         test_data_manager_btn.pack(pady=5, anchor=tk.W)
 
@@ -146,7 +166,8 @@ class EvaluatorGUI:
             parent,
             text="🏷️ 分组管理",
             command=self.open_group_manager,
-            width=25
+            width=25,
+            style="Menu.TButton"
         )
         group_manager_btn.pack(pady=5, anchor=tk.W)
 
@@ -159,7 +180,8 @@ class EvaluatorGUI:
             parent,
             text="❌ 退出",
             command=self.root.quit,
-            width=25
+            width=25,
+            style="Menu.TButton"
         )
         exit_btn.pack(pady=5, anchor=tk.W)
 
