@@ -52,6 +52,17 @@ class ResultPopupWindow:
         # 居中显示
         self.center_window()
 
+    def _calculate_text_height(self, text):
+        """动态计算Text组件高度"""
+        if not text:
+            return 5
+        lines = text.count('\n') + 1
+        if lines <= 2:
+            new_height = 5
+        else:
+            new_height = lines + 3
+        return new_height
+
     def create_interface(self):
         """创建界面"""
         # 创建可滚动容器
@@ -180,6 +191,7 @@ class ResultPopupWindow:
         )
         question_label.pack(fill=tk.X, pady=(5, 0))
 
+        question_height = self._calculate_text_height(question)
         question_text = tk.Text(
             content_frame,
             font=("Arial", 10),
@@ -189,7 +201,7 @@ class ResultPopupWindow:
             padx=10,
             pady=8,
             wrap=tk.WORD,
-            height=3
+            height=question_height
         )
         question_text.pack(fill=tk.X, pady=(0, 10))
         question_text.insert(1.0, question)
@@ -206,6 +218,7 @@ class ResultPopupWindow:
         )
         answer_label.pack(fill=tk.X, pady=(5, 0))
 
+        answer_height = self._calculate_text_height(answer)
         answer_text = tk.Text(
             content_frame,
             font=("Arial", 10),
@@ -215,7 +228,7 @@ class ResultPopupWindow:
             padx=10,
             pady=8,
             wrap=tk.WORD,
-            height=5
+            height=answer_height
         )
         answer_text.pack(fill=tk.X, pady=(0, 10))
         answer_text.insert(1.0, answer)
@@ -233,6 +246,7 @@ class ResultPopupWindow:
             )
             context_label.pack(fill=tk.X, pady=(5, 0))
 
+            context_height = self._calculate_text_height(context)
             context_text = tk.Text(
                 content_frame,
                 font=("Arial", 10),
@@ -242,7 +256,7 @@ class ResultPopupWindow:
                 padx=10,
                 pady=8,
                 wrap=tk.WORD,
-                height=4
+                height=context_height
             )
             context_text.pack(fill=tk.X, pady=(0, 10))
             context_text.insert(1.0, context)
