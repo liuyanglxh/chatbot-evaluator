@@ -178,7 +178,7 @@ class ConfigManager:
                     'name': '测试数据名称',
                     'question': '问题',
                     'answer': '回答',
-                    'context': '上下文（可选）'
+                    'context': '参考资料（可选）'
                 }
         """
         config = self.load_config()

@@ -158,8 +158,8 @@ class EvaluationExecutionWindow:
         )
         self.answer_text.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=5)
 
-        # 上下文（可选）
-        ttk.Label(input_frame, text="上下文（可选）:").grid(row=5, column=0, sticky=tk.W, pady=5)
+        # 参考资料（可选）
+        ttk.Label(input_frame, text="参考资料（可选）:").grid(row=5, column=0, sticky=tk.W, pady=5)
         self.context_text = scrolledtext.ScrolledText(
             input_frame,
             width=60,
@@ -1201,12 +1201,12 @@ class BatchResultWindow:
         answer_text.insert(1.0, answer)
         answer_text.config(state=tk.DISABLED)
 
-        # 上下文（如果有）
+        # 参考资料（如果有）
         context = result.get('input', {}).get('context', '')
         if context:
             ttk.Label(
                 info_card,
-                text="上下文:",
+                text="参考资料:",
                 font=("Arial", 10, "bold")
             ).pack(anchor=tk.W, padx=15, pady=(10, 5))
 

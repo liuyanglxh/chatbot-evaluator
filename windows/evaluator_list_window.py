@@ -451,7 +451,16 @@ class EvaluatorDetailPopup:
         evaluator_name = self.evaluator_data.get("name", "未知")
         self.window = tk.Toplevel(parent)
         self.window.title(f"评估器详情 - {evaluator_name}")
-        self.window.geometry("700x650")
+
+        # 动态计算窗口大小，根据字体大小调整
+        font_size = font_manager.get_panel_font_size()
+        # 基础大小 700x650，字体每增加1号，宽度和高度增加
+        base_width = 700
+        base_height = 650
+        scale_factor = (font_size - 11) * 0.08  # 11号是基准
+        window_width = int(base_width * (1 + max(0, scale_factor)))
+        window_height = int(base_height * (1 + max(0, scale_factor)))
+        self.window.geometry(f"{window_width}x{window_height}")
         self.window.transient(parent)
         self.window.grab_set()
 
@@ -552,8 +561,12 @@ class EvaluatorDetailPopup:
 
     def create_interface(self):
         """创建界面"""
+        # 动态计算padding，根据字体大小调整
+        font_size = font_manager.get_panel_font_size()
+        padding = max(20, int(font_size * 1.5))  # 字体越大，padding越大
+
         # 主框架
-        main_frame = ttk.Frame(self.scrollable_frame, padding="20")
+        main_frame = ttk.Frame(self.scrollable_frame, padding=padding)
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         # 标题
@@ -711,8 +724,7 @@ class EvaluatorDetailPopup:
         save_button = ttk.Button(
             button_frame,
             text="💾 保存修改",
-            command=self.save_changes,
-            width=15
+            command=self.save_changes
         )
         save_button.pack(side=tk.LEFT, padx=5)
 
@@ -720,8 +732,7 @@ class EvaluatorDetailPopup:
         cancel_button = ttk.Button(
             button_frame,
             text="✖ 取消",
-            command=self.window.destroy,
-            width=15
+            command=self.window.destroy
         )
         cancel_button.pack(side=tk.LEFT, padx=5)
 

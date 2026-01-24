@@ -253,11 +253,11 @@ class ResultPopupWindow:
         answer_text.insert(1.0, answer)
         answer_text.config(state=tk.DISABLED)
 
-        # 上下文（如果有）
+        # 参考资料（如果有）
         if context:
             context_label = tk.Label(
                 content_frame,
-                text="📚 上下文:",
+                text="📚 参考资料:",
                 font=font_manager.panel_font_bold(),
                 bg="white",
                 fg="#2D3748",
