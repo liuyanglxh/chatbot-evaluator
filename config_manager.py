@@ -287,6 +287,17 @@ class ConfigManager:
         config = self.load_config()
         return config.get("menu_font_size", 11)  # 默认11号字体
 
+    def save_panel_font_size(self, panel_font_size: int):
+        """保存功能区字体大小设置"""
+        config = self.load_config()
+        config["panel_font_size"] = panel_font_size
+        self.save_config(config)
+
+    def get_panel_font_size(self) -> int:
+        """获取功能区字体大小设置"""
+        config = self.load_config()
+        return config.get("panel_font_size", 11)  # 默认11号字体
+
     # ========== 测试分组管理 ==========
 
     def get_test_groups(self) -> list:

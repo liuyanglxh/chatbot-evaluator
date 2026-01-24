@@ -10,6 +10,7 @@ from pathlib import Path
 # 添加父目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config_manager import ConfigManager
+from font_utils import font_manager
 from windows.scoring_rules_table import ScoringRulesTable
 
 
@@ -46,7 +47,7 @@ class EvaluatorListWindow:
         title_label = ttk.Label(
             main_frame,
             text="评估器列表",
-            font=("Arial", 16, "bold")
+            font=font_manager.panel_title_font()
         )
         title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
 
@@ -103,7 +104,7 @@ class EvaluatorListWindow:
         self.stats_label = ttk.Label(
             toolbar_frame,
             text="共 0 个评估器",
-            font=("Arial", 10)
+            font=font_manager.panel_font()
         )
         self.stats_label.grid(row=0, column=5, sticky=tk.W)
 
