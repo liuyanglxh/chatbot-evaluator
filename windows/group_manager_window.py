@@ -5,6 +5,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from config_manager import ConfigManager
+from font_utils import font_manager
 
 
 class GroupManagerWindow:
@@ -50,7 +51,7 @@ class GroupManagerWindow:
         title_label = ttk.Label(
             main_frame,
             text="🏷️ 分组管理",
-            font=("Arial", 16, "bold")
+            font=font_manager.panel_title_font()
         )
         title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
 
@@ -65,8 +66,18 @@ class GroupManagerWindow:
         self.tree.heading("name", text="分组名称")
         self.tree.heading("description", text="描述")
 
+        # 设置列宽 - 保持左对齐
         self.tree.column("name", width=150, anchor=tk.W)
         self.tree.column("description", width=200, anchor=tk.W)
+
+        # 应用字体设置和动态行高
+        style = ttk.Style()
+        row_height = font_manager.get_treeview_row_height()
+        style.configure("GroupManager.Treeview",
+                       font=font_manager.panel_font(),
+                       rowheight=row_height)
+        style.configure("GroupManager.Treeview.Heading", font=font_manager.panel_font_bold())
+        self.tree.configure(style="GroupManager.Treeview")
 
         # 滚动条
         scrollbar = ttk.Scrollbar(left_frame, orient=tk.VERTICAL, command=self.tree.yview)
@@ -244,18 +255,18 @@ class GroupEditDialog:
         title_label = ttk.Label(
             main_frame,
             text=title,
-            font=("Arial", 14, "bold")
+            font=font_manager.panel_font_bold()
         )
         title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
 
         # 分组名称
         ttk.Label(main_frame, text="分组名称 *:").grid(row=1, column=0, sticky=tk.W, pady=10)
-        self.name_entry = ttk.Entry(main_frame, width=30, font=("Arial", 11))
+        self.name_entry = ttk.Entry(main_frame, width=font_manager.get_entry_width(30), font=font_manager.panel_font())
         self.name_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=10)
 
         # 描述
         ttk.Label(main_frame, text="描述:").grid(row=2, column=0, sticky=tk.NW, pady=10)
-        self.description_text = tk.Text(main_frame, width=30, height=5, font=("Arial", 11), wrap=tk.WORD)
+        self.description_text = tk.Text(main_frame, width=30, height=5, font=font_manager.panel_font(), wrap=tk.WORD)
         self.description_text.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=10)
 
         # 如果是修改，填充原有数据

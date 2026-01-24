@@ -6,6 +6,7 @@ from tkinter import ttk, messagebox
 import sys
 from pathlib import Path
 import threading
+from font_utils import font_manager
 
 # 添加父目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -45,7 +46,7 @@ class ModelSettingsWindow:
         title_label = ttk.Label(
             main_frame,
             text="大模型设置",
-            font=("Arial", 16, "bold")
+            font=font_manager.panel_title_font()
         )
         title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
 
@@ -131,7 +132,7 @@ class ModelSettingsWindow:
             self.test_result_frame,
             height=6,
             width=50,
-            font=("Arial", 10),
+            font=font_manager.panel_font(),
             state=tk.DISABLED
         )
         self.test_result_text.pack(fill=tk.BOTH, expand=True)

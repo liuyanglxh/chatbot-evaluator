@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import sys
 from pathlib import Path
+from font_utils import font_manager
 
 # 添加父目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -101,14 +102,14 @@ class AddEvaluatorWindow:
         title_label = ttk.Label(
             main_frame,
             text="添加评估器",
-            font=("Arial", 16, "bold")
+            font=font_manager.panel_title_font()
         )
         title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
 
         # 评估器名称
         ttk.Label(main_frame, text="评估器名称:").grid(row=1, column=0, sticky=tk.W, pady=10)
         self.name_var = tk.StringVar()
-        name_entry = ttk.Entry(main_frame, textvariable=self.name_var, width=50)
+        name_entry = ttk.Entry(main_frame, textvariable=self.name_var, width=font_manager.get_entry_width(50))
         name_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=10)
 
         # 添加必填标记
@@ -178,7 +179,7 @@ class AddEvaluatorWindow:
         self.threshold_label.grid(row=4, column=0, sticky=tk.W, pady=10)
 
         self.threshold_var = tk.StringVar(value="0.5")
-        self.threshold_entry = ttk.Entry(main_frame, textvariable=self.threshold_var, width=50)
+        self.threshold_entry = ttk.Entry(main_frame, textvariable=self.threshold_var, width=font_manager.get_entry_width(50))
         self.threshold_entry.grid(row=4, column=1, sticky=(tk.W, tk.E), pady=10)
 
         # 评估标准（Prompt）输入区域 - 初始隐藏
@@ -190,7 +191,7 @@ class AddEvaluatorWindow:
         # 创建Text组件（初始2行，会根据内容动态调整）
         self.criteria_text = tk.Text(
             self.criteria_frame,
-            font=("Arial", 10),
+            font=font_manager.panel_font(),
             height=2,  # 初始2行，会动态调整
             wrap=tk.WORD,
             relief=tk.RIDGE,
@@ -222,7 +223,7 @@ class AddEvaluatorWindow:
         self.info_label = ttk.Label(
             main_frame,
             text="",
-            font=("Arial", 10),
+            font=font_manager.panel_font(),
             justify=tk.LEFT,
             foreground="gray"
         )

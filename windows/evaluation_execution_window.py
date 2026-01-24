@@ -12,6 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config_manager import ConfigManager
 from evaluators import get_executor
+from font_utils import font_manager
 
 
 def format_number(value):
@@ -65,14 +66,14 @@ class EvaluationExecutionWindow:
         title_label = ttk.Label(
             main_frame,
             text=title_text,
-            font=("Arial", 16, "bold")
+            font=font_manager.panel_title_font()
         )
         title_label.grid(row=0, column=0, columnspan=2, pady=(0, 5))
 
         subtitle_label = ttk.Label(
             main_frame,
             text=subtitle_text,
-            font=("Arial", 10),
+            font=font_manager.panel_font_small(),
             foreground="gray"
         )
         subtitle_label.grid(row=1, column=0, columnspan=2, pady=(0, 20))
@@ -85,23 +86,27 @@ class EvaluationExecutionWindow:
         selection_frame = ttk.Frame(input_frame)
         selection_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
 
+        # 第一行：标签和下拉框
+        row1_frame = ttk.Frame(selection_frame)
+        row1_frame.pack(fill=tk.X, pady=(0, 5))
+
         ttk.Label(
-            selection_frame,
+            row1_frame,
             text="📚 选择测试数据:",
-            font=("Arial", 10)
+            font=font_manager.panel_font_small()
         ).pack(side=tk.LEFT, padx=(0, 10))
 
         # 分组筛选
         ttk.Label(
-            selection_frame,
+            row1_frame,
             text="🏷️ 分组:",
-            font=("Arial", 10)
+            font=font_manager.panel_font_small()
         ).pack(side=tk.LEFT, padx=(0, 5))
 
         self.group_filter_combo = ttk.Combobox(
-            selection_frame,
-            width=15,
-            font=("Arial", 10),
+            row1_frame,
+            width=font_manager.get_entry_width(15),
+            font=font_manager.panel_font_small(),
             state="readonly"
         )
         self.group_filter_combo.pack(side=tk.LEFT, padx=(0, 10))
@@ -109,20 +114,23 @@ class EvaluationExecutionWindow:
 
         # 测试数据下拉框
         self.test_data_combo = ttk.Combobox(
-            selection_frame,
-            width=40,
-            font=("Arial", 10)
+            row1_frame,
+            width=font_manager.get_entry_width(40),
+            font=font_manager.panel_font_small()
         )
         self.test_data_combo.pack(side=tk.LEFT, padx=(0, 10))
 
         # 绑定选择事件（选择后自动加载）
         self.test_data_combo.bind("<<ComboboxSelected>>", self._on_test_data_selected)
 
+        # 第二行：批量测试按钮（独占一行，不会超出）
+        row2_frame = ttk.Frame(selection_frame)
+        row2_frame.pack(fill=tk.X, pady=(5, 0))
+
         ttk.Button(
-            selection_frame,
+            row2_frame,
             text="📋 批量测试",
-            command=self.open_batch_test,
-            width=12
+            command=self.open_batch_test
         ).pack(side=tk.LEFT)
 
         # 加载分组选项
@@ -136,7 +144,7 @@ class EvaluationExecutionWindow:
             input_frame,
             width=60,
             height=4,
-            font=("Arial", 11)
+            font=font_manager.panel_font()
         )
         self.question_text.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=5)
 
@@ -146,7 +154,7 @@ class EvaluationExecutionWindow:
             input_frame,
             width=60,
             height=6,
-            font=("Arial", 11)
+            font=font_manager.panel_font()
         )
         self.answer_text.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=5)
 
@@ -156,7 +164,7 @@ class EvaluationExecutionWindow:
             input_frame,
             width=60,
             height=4,
-            font=("Arial", 11)
+            font=font_manager.panel_font()
         )
         self.context_text.grid(row=6, column=0, sticky=(tk.W, tk.E), pady=5)
 
@@ -191,7 +199,7 @@ class EvaluationExecutionWindow:
             result_frame,
             width=80,
             height=12,
-            font=("Arial", 10),
+            font=font_manager.panel_font_small(),
             state=tk.DISABLED
         )
         self.result_text.pack(fill=tk.BOTH, expand=True)
@@ -360,7 +368,7 @@ class EvaluationExecutionWindow:
         title_label = ttk.Label(
             main_frame,
             text=dialog_header,
-            font=("Arial", 16, "bold")
+            font=font_manager.panel_title_font()
         )
         title_label.grid(row=1, column=0, pady=(0, 20))
 
@@ -380,7 +388,7 @@ class EvaluationExecutionWindow:
         title_label = ttk.Label(
             main_frame,
             text="评估执行失败",
-            font=("Arial", 16, "bold")
+            font=font_manager.panel_title_font()
         )
         title_label.grid(row=1, column=0, pady=(0, 20))
 
@@ -498,9 +506,9 @@ class EvaluationExecutionWindow:
         passed = result.get('passed', False)
 
         # 配置简单样式
-        self.result_text.tag_config("success", foreground="#48BB78", font=("Arial", 14, "bold"))
-        self.result_text.tag_config("failure", foreground="#F56565", font=("Arial", 14, "bold"))
-        self.result_text.tag_config("normal", foreground="#2D3748", font=("Arial", 11))
+        self.result_text.tag_config("success", foreground="#48BB78", font=font_manager.panel_font_bold())
+        self.result_text.tag_config("failure", foreground="#F56565", font=font_manager.panel_font_bold())
+        self.result_text.tag_config("normal", foreground="#2D3748", font=font_manager.panel_font())
 
         # 显示简略信息
         status = "✅ 通过" if passed else "❌ 失败"
@@ -519,8 +527,8 @@ class EvaluationExecutionWindow:
         self.result_text.delete(1.0, tk.END)
 
         # 配置简单样式
-        self.result_text.tag_config("error", foreground="#F56565", font=("Arial", 14, "bold"))
-        self.result_text.tag_config("normal", foreground="#2D3748", font=("Arial", 11))
+        self.result_text.tag_config("error", foreground="#F56565", font=font_manager.panel_font_bold())
+        self.result_text.tag_config("normal", foreground="#2D3748", font=font_manager.panel_font())
 
         # 显示错误
         self.result_text.insert(tk.END, "❌ 评估失败\n\n", "error")
@@ -584,31 +592,32 @@ class BatchTestSelectionWindow:
         title_label = ttk.Label(
             main_frame,
             text="📋 批量测试 - 选择测试数据",
-            font=("Arial", 16, "bold")
+            font=font_manager.panel_title_font()
         )
-        title_label.grid(row=0, column=0, pady=(0, 20))
+        title_label.grid(row=0, column=0, pady=(0, 10))
 
         # 说明
         info_text = f"评估器: {self.evaluator_info['name']}\n" \
                    f"框架: {self.evaluator_info['framework']} | " \
                    f"类型: {self.evaluator_info['metric_type']}"
-        info_label = ttk.Label(main_frame, text=info_text, font=("Arial", 10), foreground="gray")
-        info_label.grid(row=1, column=0, pady=(0, 20))
+        info_label = ttk.Label(main_frame, text=info_text, font=font_manager.panel_font_small(), foreground="gray")
+        info_label.grid(row=1, column=0, pady=(0, 10))
+
+        # 控制区域（分组筛选 + 三个按钮，同一行）
+        control_frame = ttk.Frame(main_frame)
+        control_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
 
         # 分组筛选
-        filter_frame = ttk.Frame(main_frame)
-        filter_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-
         ttk.Label(
-            filter_frame,
-            text="🏷️ 分组筛选:",
-            font=("Arial", 10)
+            control_frame,
+            text="🏷️ 分组:",
+            font=font_manager.panel_font()
         ).pack(side=tk.LEFT, padx=(0, 5))
 
         self.group_filter_combo = ttk.Combobox(
-            filter_frame,
-            width=20,
-            font=("Arial", 10),
+            control_frame,
+            width=15,
+            font=font_manager.panel_font(),
             state="readonly"
         )
         self.group_filter_combo.pack(side=tk.LEFT, padx=(0, 10))
@@ -617,97 +626,56 @@ class BatchTestSelectionWindow:
         # 加载分组选项
         self._load_groups()
 
-        # 创建滚动容器
-        self.create_scrollable_container()
-
-        # 创建列表
-        self.create_test_data_list()
-
-        # 按钮
-        button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=4, column=0, pady=(20, 0))
-
+        # 全选按钮
         ttk.Button(
-            button_frame,
+            control_frame,
             text="☑ 全选",
             command=self.toggle_select_all,
             width=10
         ).pack(side=tk.LEFT, padx=5)
 
+        # 开始测试按钮
         ttk.Button(
-            button_frame,
+            control_frame,
             text="▶ 开始测试",
             command=self.start_batch_test,
             width=12
         ).pack(side=tk.LEFT, padx=5)
 
+        # 取消按钮
         ttk.Button(
-            button_frame,
+            control_frame,
             text="取消",
             command=self.window.destroy,
             width=10
         ).pack(side=tk.LEFT, padx=5)
 
+        # 创建滚动容器（占据剩余空间）
+        self.create_scrollable_container(main_frame)
+
+        # 创建列表
+        self.create_test_data_list()
+
         # 配置网格权重
         self.window.columnconfigure(0, weight=1)
         self.window.rowconfigure(0, weight=1)
         main_frame.columnconfigure(0, weight=1)
+        main_frame.rowconfigure(3, weight=1)  # 让滚动容器区域占据剩余空间
 
-    def create_scrollable_container(self):
-        """创建可滚动容器"""
-        # 创建主容器
-        container = ttk.Frame(self.window)
-        container.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=20, pady=(0, 10))
+    def create_scrollable_container(self, parent):
+        """创建列表容器（不使用Canvas，让Treeview自己管理滚动）"""
+        # 创建主容器，作为parent的子元素
+        container = ttk.Frame(parent)
+        container.grid(row=3, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 0))
 
-        # 创建Canvas
-        self.canvas = tk.Canvas(container, highlightthickness=0)
-        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        # 创建滚动条
-        scrollbar = ttk.Scrollbar(container, orient=tk.VERTICAL, command=self.canvas.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # 配置Canvas滚动
-        self.canvas.configure(yscrollcommand=scrollbar.set)
-
-        # 创建可滚动框架
-        self.scrollable_frame = ttk.Frame(self.canvas)
-        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor=tk.NW)
-
-        # 绑定配置事件
-        self.scrollable_frame.bind("<Configure>", self._on_frame_configure)
-        self.canvas.bind("<Configure>", self._on_canvas_configure)
-
-        # 绑定鼠标滚轮事件
-        self._bind_mousewheel()
-
-    def _on_frame_configure(self, event):
-        """框架配置改变时更新滚动区域"""
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-
-    def _on_canvas_configure(self, event):
-        """Canvas配置改变时调整框架宽度"""
-        canvas_width = event.width
-        self.canvas.itemconfig(self.canvas_window, width=canvas_width)
-
-    def _bind_mousewheel(self):
-        """绑定鼠标滚轮事件"""
-        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
-        self.canvas.bind_all("<Button-4>", self._on_mousewheel)
-        self.canvas.bind_all("<Button-5>", self._on_mousewheel)
-
-    def _on_mousewheel(self, event):
-        """鼠标滚轮事件处理"""
-        if event.num == 5 or event.delta < 0:
-            self.canvas.yview_scroll(1, "units")
-        elif event.num == 4 or event.delta > 0:
-            self.canvas.yview_scroll(-1, "units")
+        # 保存容器引用，供create_test_data_list使用
+        self.list_container = container
 
     def create_test_data_list(self):
         """创建测试数据列表"""
-        # 创建Treeview
+        # 创建Treeview（自带滚动条）
         columns = ("select", "name")
-        self.tree = ttk.Treeview(self.scrollable_frame, columns=columns, show="headings", height=15)
+        self.tree = ttk.Treeview(self.list_container, columns=columns, show="headings")
 
         self.tree.heading("select", text="✓")
         self.tree.heading("name", text="测试数据名称")
@@ -715,7 +683,21 @@ class BatchTestSelectionWindow:
         self.tree.column("select", width=50, anchor=tk.CENTER)
         self.tree.column("name", width=700)
 
-        self.tree.pack(fill=tk.BOTH, expand=True)
+        # 应用字体设置和动态行高
+        style = ttk.Style()
+        row_height = font_manager.get_treeview_row_height()
+        style.configure("BatchTest.Treeview",
+                       font=font_manager.panel_font(),
+                       rowheight=row_height)
+        style.configure("BatchTest.Treeview.Heading", font=font_manager.panel_font_bold())
+        self.tree.configure(style="BatchTest.Treeview")
+
+        # 滚动条
+        tree_scrollbar = ttk.Scrollbar(self.list_container, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscrollcommand=tree_scrollbar.set)
+
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        tree_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         # 绑定点击事件
         self.tree.bind("<Button-1>", self._on_click)

@@ -59,8 +59,7 @@ class EvaluatorListWindow:
         refresh_button = ttk.Button(
             toolbar_frame,
             text="刷新",
-            command=self.load_evaluators,
-            width=10
+            command=self.load_evaluators
         )
         refresh_button.grid(row=0, column=0, padx=(0, 10))
 
@@ -68,8 +67,7 @@ class EvaluatorListWindow:
         use_button = ttk.Button(
             toolbar_frame,
             text="✓ 使用选中",
-            command=self.use_selected,
-            width=12
+            command=self.use_selected
         )
         use_button.grid(row=0, column=1, padx=(0, 10))
 
@@ -77,8 +75,7 @@ class EvaluatorListWindow:
         delete_button = ttk.Button(
             toolbar_frame,
             text="删除选中",
-            command=self.delete_selected,
-            width=10
+            command=self.delete_selected
         )
         delete_button.grid(row=0, column=2, padx=(0, 10))
 
@@ -86,8 +83,7 @@ class EvaluatorListWindow:
         export_button = ttk.Button(
             toolbar_frame,
             text="📤 导出评估器",
-            command=self.export_evaluators,
-            width=12
+            command=self.export_evaluators
         )
         export_button.grid(row=0, column=3, padx=(0, 10))
 
@@ -95,8 +91,7 @@ class EvaluatorListWindow:
         import_button = ttk.Button(
             toolbar_frame,
             text="📥 导入评估器",
-            command=self.import_evaluators,
-            width=12
+            command=self.import_evaluators
         )
         import_button.grid(row=0, column=4, padx=(0, 10))
 
@@ -130,6 +125,15 @@ class EvaluatorListWindow:
         )
         self.tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
+        # 应用字体设置和动态行高
+        style = ttk.Style()
+        row_height = font_manager.get_treeview_row_height()
+        style.configure("EvaluatorList.Treeview",
+                       font=font_manager.panel_font(),
+                       rowheight=row_height)
+        style.configure("EvaluatorList.Treeview.Heading", font=font_manager.panel_font_bold())
+        self.tree.configure(style="EvaluatorList.Treeview")
+
         # 配置滚动条
         scrollbar_y.config(command=self.tree.yview)
         scrollbar_x.config(command=self.tree.xview)
@@ -140,11 +144,11 @@ class EvaluatorListWindow:
         self.tree.heading("metric_type", text="评估器类型")
         self.tree.heading("threshold", text="阈值")
 
-        # 设置列宽
+        # 设置列宽 - 全部改为左对齐
         self.tree.column("name", width=250, anchor=tk.W)
-        self.tree.column("framework", width=150, anchor=tk.CENTER)
+        self.tree.column("framework", width=150, anchor=tk.W)
         self.tree.column("metric_type", width=300, anchor=tk.W)
-        self.tree.column("threshold", width=100, anchor=tk.CENTER)
+        self.tree.column("threshold", width=100, anchor=tk.W)
 
         # 绑定双击事件
         self.tree.bind("<Double-Button-1>", self._on_double_click)
@@ -556,7 +560,7 @@ class EvaluatorDetailPopup:
         title_label = ttk.Label(
             main_frame,
             text=f"📝 评估器详情",
-            font=("Arial", 16, "bold")
+            font=font_manager.panel_title_font()
         )
         title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
 
@@ -565,33 +569,33 @@ class EvaluatorDetailPopup:
         metric_type = self.evaluator_data.get("metric_type", "")
 
         # 评估器名称
-        ttk.Label(main_frame, text="评估器名称:", font=("Arial", 11, "bold")).grid(
+        ttk.Label(main_frame, text="评估器名称:", font=font_manager.panel_font_bold()).grid(
             row=1, column=0, sticky=tk.W, pady=10
         )
         self.name_var = tk.StringVar(value=self.evaluator_data.get("name", ""))
-        name_entry = ttk.Entry(main_frame, textvariable=self.name_var, width=50, font=("Arial", 11))
+        name_entry = ttk.Entry(main_frame, textvariable=self.name_var, width=font_manager.get_entry_width(50), font=font_manager.panel_font())
         name_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=10)
         # 添加必填标记
-        ttk.Label(main_frame, text="*必填", foreground="red", font=("Arial", 9)).grid(
+        ttk.Label(main_frame, text="*必填", foreground="red", font=font_manager.panel_font_small()).grid(
             row=1, column=2, sticky=tk.W, padx=(5, 0), pady=10
         )
 
         # 框架
-        ttk.Label(main_frame, text="评估框架:", font=("Arial", 11, "bold")).grid(
+        ttk.Label(main_frame, text="评估框架:", font=font_manager.panel_font_bold()).grid(
             row=2, column=0, sticky=tk.W, pady=10
         )
         framework_display = self._get_framework_display_name(framework)
         self.framework_var = tk.StringVar(value=framework_display)
-        framework_entry = ttk.Entry(main_frame, textvariable=self.framework_var, width=50, font=("Arial", 11))
+        framework_entry = ttk.Entry(main_frame, textvariable=self.framework_var, width=font_manager.get_entry_width(50), font=font_manager.panel_font())
         framework_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=10)
         framework_entry.config(state=tk.DISABLED)  # 框架不可修改
 
         # 评估器类型
-        ttk.Label(main_frame, text="评估器类型:", font=("Arial", 11, "bold")).grid(
+        ttk.Label(main_frame, text="评估器类型:", font=font_manager.panel_font_bold()).grid(
             row=3, column=0, sticky=tk.W, pady=10
         )
         self.metric_type_var = tk.StringVar(value=metric_type)
-        metric_type_entry = ttk.Entry(main_frame, textvariable=self.metric_type_var, width=50, font=("Arial", 11))
+        metric_type_entry = ttk.Entry(main_frame, textvariable=self.metric_type_var, width=font_manager.get_entry_width(50), font=font_manager.panel_font())
         metric_type_entry.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=10)
         metric_type_entry.config(state=tk.DISABLED)  # 类型不可修改
 
@@ -601,11 +605,11 @@ class EvaluatorDetailPopup:
         else:
             threshold_label_text = "阈值 (0-1):"
 
-        ttk.Label(main_frame, text=threshold_label_text, font=("Arial", 11, "bold")).grid(
+        ttk.Label(main_frame, text=threshold_label_text, font=font_manager.panel_font_bold()).grid(
             row=4, column=0, sticky=tk.W, pady=10
         )
         self.threshold_var = tk.StringVar(value=str(self.evaluator_data.get("threshold", "")))
-        threshold_entry = ttk.Entry(main_frame, textvariable=self.threshold_var, width=50, font=("Arial", 11))
+        threshold_entry = ttk.Entry(main_frame, textvariable=self.threshold_var, width=font_manager.get_entry_width(50), font=font_manager.panel_font())
         threshold_entry.grid(row=4, column=1, sticky=(tk.W, tk.E), pady=10)
 
         # 评估标准（如果有需要）
@@ -618,7 +622,7 @@ class EvaluatorDetailPopup:
         # 根据框架和类型决定显示什么
         if framework == "custom" and metric_type == "规则评分":
             # 显示评分规则表格
-            ttk.Label(self.scoring_rules_frame, text="评分规则:", font=("Arial", 11, "bold")).grid(
+            ttk.Label(self.scoring_rules_frame, text="评分规则:", font=font_manager.panel_font_bold()).grid(
                 row=0, column=0, sticky=tk.NW, pady=10
             )
 
@@ -655,14 +659,14 @@ class EvaluatorDetailPopup:
             # 显示criteria输入框
             criteria = self.evaluator_data.get("criteria", "")
 
-            ttk.Label(self.criteria_frame, text="评估标准:", font=("Arial", 11, "bold")).grid(
+            ttk.Label(self.criteria_frame, text="评估标准:", font=font_manager.panel_font_bold()).grid(
                 row=0, column=0, sticky=tk.NW, pady=10
             )
 
             # 创建Text组件
             self.criteria_text = tk.Text(
                 self.criteria_frame,
-                font=("Arial", 11),
+                font=font_manager.panel_font(),
                 height=5,
                 wrap=tk.WORD,
                 relief=tk.RIDGE,
@@ -693,7 +697,7 @@ class EvaluatorDetailPopup:
         info_label = ttk.Label(
             main_frame,
             text=info_text,
-            font=("Arial", 10),
+            font=font_manager.panel_font_small(),
             justify=tk.LEFT,
             foreground="gray"
         )

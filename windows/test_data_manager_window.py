@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 import sys
 from pathlib import Path
+from font_utils import font_manager
 
 # 添加父目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -55,7 +56,7 @@ class TestDataManagerWindow:
         title_label = ttk.Label(
             main_container,
             text="📚 测试数据管理",
-            font=("Arial", 18, "bold")
+            font=font_manager.panel_title_font()
         )
         title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
 
@@ -63,12 +64,38 @@ class TestDataManagerWindow:
         left_frame = ttk.LabelFrame(main_container, text="测试数据列表", padding="10")
         left_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10))
 
-        # 使用Grid布局，上半部分是列表，下半部分是按钮
-        left_frame.rowconfigure(0, weight=1)  # 列表区域可以扩展
+        # 使用Grid布局：筛选框、列表、按钮
+        left_frame.rowconfigure(1, weight=1)  # 列表区域可以扩展
+
+        # ========== 分组筛选区域 ==========
+        filter_frame = ttk.Frame(left_frame)
+        filter_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+
+        ttk.Label(
+            filter_frame,
+            text="🏷️ 分组筛选:",
+            font=font_manager.panel_font()
+        ).pack(side=tk.LEFT, padx=(0, 5))
+
+        # 获取所有分组并创建下拉框
+        test_groups = self.config_manager.get_test_groups()
+        group_options = ["全部"] + [g["name"] for g in test_groups]
+
+        self.group_filter_var = tk.StringVar(value="全部")
+        self.group_filter_combo = ttk.Combobox(
+            filter_frame,
+            textvariable=self.group_filter_var,
+            values=group_options,
+            width=20,
+            font=font_manager.panel_font(),
+            state="readonly"
+        )
+        self.group_filter_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.group_filter_combo.bind("<<ComboboxSelected>>", self._on_group_filter_changed)
 
         # ========== 列表区域（可滚动） ==========
         list_container = ttk.Frame(left_frame)
-        list_container.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        list_container.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         # 创建Treeview（自带滚动条）
         columns = ("select", "name", "question")
@@ -78,9 +105,19 @@ class TestDataManagerWindow:
         self.tree.heading("name", text="名称")
         self.tree.heading("question", text="问题")
 
+        # 设置列宽 - 复选框居中，其他左对齐
         self.tree.column("select", width=40, anchor=tk.CENTER)
-        self.tree.column("name", width=200)
-        self.tree.column("question", width=300)
+        self.tree.column("name", width=200, anchor=tk.W)
+        self.tree.column("question", width=300, anchor=tk.W)
+
+        # 应用字体设置和动态行高
+        style = ttk.Style()
+        row_height = font_manager.get_treeview_row_height()
+        style.configure("TestDataManager.Treeview",
+                       font=font_manager.panel_font(),
+                       rowheight=row_height)
+        style.configure("TestDataManager.Treeview.Heading", font=font_manager.panel_font_bold())
+        self.tree.configure(style="TestDataManager.Treeview")
 
         # 滚动条
         tree_scrollbar = ttk.Scrollbar(list_container, orient=tk.VERTICAL, command=self.tree.yview)
@@ -98,7 +135,7 @@ class TestDataManagerWindow:
 
         # ========== 按钮区域（固定在底部，不滚动） ==========
         button_frame = ttk.Frame(left_frame)
-        button_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        button_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
 
         # 全选/取消全选按钮
         self.select_all_btn = ttk.Button(
@@ -142,7 +179,11 @@ class TestDataManagerWindow:
         # 当框架宽度改变时，调整canvas窗口宽度
         def _configure_right_canvas(event):
             canvas_width = event.width
+            # 确保窗口宽度匹配canvas，这样滚动条才会出现
             right_canvas.itemconfig(right_canvas_window, width=canvas_width)
+            # 强制更新滚动区域
+            right_canvas.update_idletasks()
+            right_canvas.configure(scrollregion=right_canvas.bbox("all"))
 
         right_canvas.bind("<Configure>", _configure_right_canvas)
 
@@ -168,7 +209,7 @@ class TestDataManagerWindow:
         # 名称
         ttk.Label(right_scrollable_frame, text="名称:").grid(row=0, column=0, sticky=tk.W, pady=5)
         self.name_var = tk.StringVar()
-        name_entry = ttk.Entry(right_scrollable_frame, textvariable=self.name_var, width=50)
+        name_entry = ttk.Entry(right_scrollable_frame, textvariable=self.name_var, width=font_manager.get_entry_width(50))
         name_entry.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=5)
 
         # 问题
@@ -177,7 +218,7 @@ class TestDataManagerWindow:
             right_scrollable_frame,
             width=50,
             height=5,
-            font=("Arial", 10),
+            font=font_manager.panel_font(),
             wrap=tk.WORD
         )
         self.question_text.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=5)
@@ -188,7 +229,7 @@ class TestDataManagerWindow:
             right_scrollable_frame,
             width=50,
             height=8,
-            font=("Arial", 10),
+            font=font_manager.panel_font(),
             wrap=tk.WORD
         )
         self.answer_text.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=5)
@@ -199,7 +240,7 @@ class TestDataManagerWindow:
             right_scrollable_frame,
             width=50,
             height=5,
-            font=("Arial", 10),
+            font=font_manager.panel_font(),
             wrap=tk.WORD
         )
         self.context_text.grid(row=7, column=0, sticky=(tk.W, tk.E), pady=5)
@@ -244,7 +285,17 @@ class TestDataManagerWindow:
         # 加载数据
         test_data_list = self.config_manager.get_test_data_list()
 
+        # 获取当前筛选的分组
+        selected_group = self.group_filter_var.get()
+
+        # 根据分组筛选
         for td in test_data_list:
+            # 如果选择了特定分组，只显示该分组的测试数据
+            if selected_group != "全部":
+                test_data_groups = td.get('groups', [])
+                if selected_group not in test_data_groups:
+                    continue
+
             # 截取问题显示
             question = td.get('question', '')
             if len(question) > 50:
@@ -260,6 +311,10 @@ class TestDataManagerWindow:
 
         # 重置全选按钮
         self.select_all_btn.config(text="☑ 全选")
+
+    def _on_group_filter_changed(self, event=None):
+        """分组筛选改变时的回调"""
+        self.load_test_data()
 
     def _on_click(self, event):
         """处理点击事件，用于切换复选框"""
@@ -637,21 +692,21 @@ class TestDataDetailPopup:
         title_label = ttk.Label(
             main_frame,
             text="📝 测试数据详情",
-            font=("Arial", 16, "bold")
+            font=font_manager.panel_title_font()
         )
         title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
 
         # 名称
-        ttk.Label(main_frame, text="名称:", font=("Arial", 11, "bold")).grid(
+        ttk.Label(main_frame, text="名称:", font=font_manager.panel_font_bold()).grid(
             row=1, column=0, sticky=tk.W, pady=10)
         self.name_var = tk.StringVar(value=self.test_data.get('name', ''))
-        name_entry = ttk.Entry(main_frame, textvariable=self.name_var, width=60, font=("Arial", 11))
+        name_entry = ttk.Entry(main_frame, textvariable=self.name_var, width=font_manager.get_entry_width(60), font=font_manager.panel_font())
         name_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=10)
 
         # 问题
-        ttk.Label(main_frame, text="问题:", font=("Arial", 11, "bold")).grid(
+        ttk.Label(main_frame, text="问题:", font=font_manager.panel_font_bold()).grid(
             row=2, column=0, sticky=tk.NW, pady=10)
-        self.question_text = tk.Text(main_frame, width=60, height=2, font=("Arial", 11),
+        self.question_text = tk.Text(main_frame, width=60, height=2, font=font_manager.panel_font(),
                                    wrap=tk.WORD, relief=tk.RIDGE, padx=5, pady=5)
         self.question_text.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=10)
         self.question_text.insert(1.0, self.test_data.get('question', ''))
@@ -659,9 +714,9 @@ class TestDataDetailPopup:
         self.question_text.bind("<KeyRelease>", lambda e: self._adjust_text_height(self.question_text))
 
         # 回答
-        ttk.Label(main_frame, text="回答:", font=("Arial", 11, "bold")).grid(
+        ttk.Label(main_frame, text="回答:", font=font_manager.panel_font_bold()).grid(
             row=3, column=0, sticky=tk.NW, pady=10)
-        self.answer_text = tk.Text(main_frame, width=60, height=2, font=("Arial", 11),
+        self.answer_text = tk.Text(main_frame, width=60, height=2, font=font_manager.panel_font(),
                                  wrap=tk.WORD, relief=tk.RIDGE, padx=5, pady=5)
         self.answer_text.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=10)
         self.answer_text.insert(1.0, self.test_data.get('answer', ''))
@@ -669,9 +724,9 @@ class TestDataDetailPopup:
         self.answer_text.bind("<KeyRelease>", lambda e: self._adjust_text_height(self.answer_text))
 
         # 上下文
-        ttk.Label(main_frame, text="上下文（可选）:", font=("Arial", 11, "bold")).grid(
+        ttk.Label(main_frame, text="上下文（可选）:", font=font_manager.panel_font_bold()).grid(
             row=4, column=0, sticky=tk.NW, pady=10)
-        self.context_text = tk.Text(main_frame, width=60, height=2, font=("Arial", 11),
+        self.context_text = tk.Text(main_frame, width=60, height=2, font=font_manager.panel_font(),
                                   wrap=tk.WORD, relief=tk.RIDGE, padx=5, pady=5)
         self.context_text.grid(row=4, column=1, sticky=(tk.W, tk.E), pady=10)
         self.context_text.insert(1.0, self.test_data.get('context', ''))
@@ -680,7 +735,7 @@ class TestDataDetailPopup:
         self.context_text.bind("<KeyRelease>", lambda e: self._adjust_text_height(self.context_text))
 
         # 分组选择
-        ttk.Label(main_frame, text="分组:", font=("Arial", 11, "bold")).grid(
+        ttk.Label(main_frame, text="分组:", font=font_manager.panel_font_bold()).grid(
             row=5, column=0, sticky=tk.NW, pady=10)
 
         # 分组选择容器 - 使用列表形式，不限制高度

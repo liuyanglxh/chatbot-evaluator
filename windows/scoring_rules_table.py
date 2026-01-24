@@ -4,6 +4,7 @@
 """
 import tkinter as tk
 from tkinter import ttk
+from font_utils import font_manager
 
 
 class ScoringRulesTable:
@@ -46,7 +47,7 @@ class ScoringRulesTable:
         score_header = tk.Label(
             header_frame,
             text="分数",
-            font=("Arial", 11, "bold"),
+            font=font_manager.panel_font_bold(),
             bg="#E2E8F0",
             width=10,
             anchor=tk.W,
@@ -59,7 +60,7 @@ class ScoringRulesTable:
         desc_header = tk.Label(
             header_frame,
             text="标准描述",
-            font=("Arial", 11, "bold"),
+            font=font_manager.panel_font_bold(),
             bg="#E2E8F0",
             anchor=tk.W,
             padx=5,
@@ -71,7 +72,7 @@ class ScoringRulesTable:
         action_header = tk.Label(
             header_frame,
             text="操作",
-            font=("Arial", 11, "bold"),
+            font=font_manager.panel_font_bold(),
             bg="#E2E8F0",
             width=10,
             anchor=tk.CENTER,

@@ -5,6 +5,7 @@
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 import threading
+from font_utils import font_manager
 
 
 def format_number(value):
@@ -157,7 +158,7 @@ class ResultPopupWindow:
         title_label = tk.Label(
             header_frame,
             text="📊 评估结果报告",
-            font=("Arial", 24, "bold"),
+            font=font_manager.panel_title_font(),
             bg="#F7FAFC",
             fg="#2D3748"
         )
@@ -192,7 +193,7 @@ class ResultPopupWindow:
         title_label = tk.Label(
             content_frame,
             text="📥 输入数据",
-            font=("Arial", 14, "bold"),
+            font=font_manager.panel_font_bold(),
             bg="white",
             fg="#4A5568"
         )
@@ -202,7 +203,7 @@ class ResultPopupWindow:
         question_label = tk.Label(
             content_frame,
             text="❓ 问题:",
-            font=("Arial", 11, "bold"),
+            font=font_manager.panel_font_bold(),
             bg="white",
             fg="#2D3748",
             anchor=tk.W
@@ -212,7 +213,7 @@ class ResultPopupWindow:
         question_height = self._calculate_text_height(question)
         question_text = tk.Text(
             content_frame,
-            font=("Arial", 10),
+            font=font_manager.panel_font(),
             bg="#F7FAFC",
             fg="#2D3748",
             relief=tk.FLAT,
@@ -229,7 +230,7 @@ class ResultPopupWindow:
         answer_label = tk.Label(
             content_frame,
             text="💬 回答:",
-            font=("Arial", 11, "bold"),
+            font=font_manager.panel_font_bold(),
             bg="white",
             fg="#2D3748",
             anchor=tk.W
@@ -239,7 +240,7 @@ class ResultPopupWindow:
         answer_height = self._calculate_text_height(answer)
         answer_text = tk.Text(
             content_frame,
-            font=("Arial", 10),
+            font=font_manager.panel_font(),
             bg="#F7FAFC",
             fg="#2D3748",
             relief=tk.FLAT,
@@ -257,7 +258,7 @@ class ResultPopupWindow:
             context_label = tk.Label(
                 content_frame,
                 text="📚 上下文:",
-                font=("Arial", 11, "bold"),
+                font=font_manager.panel_font_bold(),
                 bg="white",
                 fg="#2D3748",
                 anchor=tk.W
@@ -267,7 +268,7 @@ class ResultPopupWindow:
             context_height = self._calculate_text_height(context)
             context_text = tk.Text(
                 content_frame,
-                font=("Arial", 10),
+                font=font_manager.panel_font(),
                 bg="#F7FAFC",
                 fg="#2D3748",
                 relief=tk.FLAT,
@@ -306,7 +307,7 @@ class ResultPopupWindow:
         status_label = tk.Label(
             content_frame,
             text=status_text,
-            font=("Arial", 20, "bold"),
+            font=font_manager.panel_title_font(),
             bg=status_bg,
             fg=status_color,
             padx=20,
@@ -328,7 +329,7 @@ class ResultPopupWindow:
         title_label = tk.Label(
             content_frame,
             text="📊 评估得分",
-            font=("Arial", 14, "bold"),
+            font=font_manager.panel_font_bold(),
             bg="white",
             fg="#4A5568"
         )
@@ -346,7 +347,7 @@ class ResultPopupWindow:
         tk.Label(
             score_frame,
             text="得分:",
-            font=("Arial", 12),
+            font=font_manager.panel_font(),
             bg="white",
             fg="#718096"
         ).pack(side=tk.LEFT)
@@ -355,7 +356,7 @@ class ResultPopupWindow:
         tk.Label(
             score_frame,
             text=f" {format_number(score)} ",
-            font=("Arial", 16, "bold"),
+            font=font_manager.panel_title_font(),
             bg="white",
             fg=score_color
         ).pack(side=tk.LEFT)
@@ -363,7 +364,7 @@ class ResultPopupWindow:
         tk.Label(
             score_frame,
             text=f"/ {format_number(threshold)}",
-            font=("Arial", 12),
+            font=font_manager.panel_font(),
             bg="white",
             fg="#718096"
         ).pack(side=tk.LEFT)
@@ -375,7 +376,7 @@ class ResultPopupWindow:
         tk.Label(
             progress_frame,
             text="进度:",
-            font=("Arial", 11),
+            font=font_manager.panel_font(),
             bg="white",
             fg="#718096"
         ).pack(anchor=tk.W, pady=(0, 5))
@@ -402,7 +403,7 @@ class ResultPopupWindow:
         tk.Label(
             progress_bar_container,
             text=f" {percentage:.1f}% ",
-            font=("Arial", 11, "bold"),
+            font=font_manager.panel_font_bold(),
             bg="white" if passed else bar_color,
             fg=bar_color if passed else "white"
         ).place(relx=0.5, rely=0.5, anchor=tk.CENTER)
@@ -421,7 +422,7 @@ class ResultPopupWindow:
         title_label = tk.Label(
             content_frame,
             text="ℹ️ 评估器信息",
-            font=("Arial", 14, "bold"),
+            font=font_manager.panel_font_bold(),
             bg="white",
             fg="#4A5568"
         )
@@ -444,7 +445,7 @@ class ResultPopupWindow:
             tk.Label(
                 info_frame,
                 text=label,
-                font=("Arial", 11),
+                font=font_manager.panel_font(),
                 bg="white",
                 fg="#718096",
                 width=8,
@@ -455,7 +456,7 @@ class ResultPopupWindow:
             tk.Label(
                 info_frame,
                 text=value,
-                font=("Arial", 11),
+                font=font_manager.panel_font(),
                 bg="#F7FAFC",
                 fg="#2D3748",
                 relief=tk.FLAT,
@@ -484,7 +485,7 @@ class ResultPopupWindow:
         title_label = tk.Label(
             title_row,
             text="📝 评估说明",
-            font=("Arial", 14, "bold"),
+            font=font_manager.panel_font_bold(),
             bg="white",
             fg="#4A5568"
         )
@@ -515,7 +516,7 @@ class ResultPopupWindow:
             # 使用普通Text，不带滚动条
             chinese_text = tk.Text(
                 chinese_tab,
-                font=("Arial", 11),
+                font=font_manager.panel_font(),
                 bg="#F7FAFC",
                 fg="#2D3748",
                 relief=tk.FLAT,
@@ -543,7 +544,7 @@ class ResultPopupWindow:
             # 使用普通Text，不带滚动条
             english_text = tk.Text(
                 english_tab,
-                font=("Arial", 11),
+                font=font_manager.panel_font(),
                 bg="#F7FAFC",
                 fg="#2D3748",
                 relief=tk.FLAT,
@@ -580,7 +581,7 @@ class ResultPopupWindow:
             # 使用普通Text，不带滚动条
             bilingual_text = tk.Text(
                 bilingual_tab,
-                font=("Arial", 11),
+                font=font_manager.panel_font(),
                 bg="#F7FAFC",
                 fg="#2D3748",
                 relief=tk.FLAT,
@@ -608,7 +609,7 @@ class ResultPopupWindow:
             # 使用普通Text，不带滚动条
             chinese_text = tk.Text(
                 only_tab,
-                font=("Arial", 11),
+                font=font_manager.panel_font(),
                 bg="#F7FAFC",
                 fg="#2D3748",
                 relief=tk.FLAT,
@@ -646,7 +647,7 @@ class ResultPopupWindow:
             tk.Label(
                 log_header,
                 text="📋 详细评估步骤",
-                font=("Arial", 12, "bold"),
+                font=font_manager.panel_font_bold(),
                 bg="white",
                 fg="#4A5568"
             ).pack(side=tk.LEFT)
@@ -791,7 +792,7 @@ class ResultPopupWindow:
         # 翻译内容
         text_widget = scrolledtext.ScrolledText(
             main_container,
-            font=("Arial", 11),
+            font=font_manager.panel_font(),
             bg="white",
             fg="#2D3748",
             relief=tk.FLAT,
@@ -838,6 +839,7 @@ class ResultPopupWindow:
     def _translate_reason(self, reason, score, threshold, passed):
         """翻译reason - 单独Tab"""
         import threading
+from font_utils import font_manager
 
         def translate_thread():
             try:
@@ -900,6 +902,7 @@ class ResultPopupWindow:
     def _translate_and_update_bilingual(self, reason, score, threshold, passed):
         """翻译并更新中英对照Tab"""
         import threading
+from font_utils import font_manager
 
         def translate_thread():
             try:
