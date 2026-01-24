@@ -26,6 +26,9 @@ class TestDataManagerWindow:
         # 存储 item_id 到 test_data_id 的映射
         self.test_data_id_map = {}
 
+        # 存储分组复选框状态 {group_name: BooleanVar}
+        self.group_vars = {}
+
         # 创建窗口
         self.window = tk.Toplevel(parent)
         self.window.title("测试数据管理")
@@ -56,17 +59,20 @@ class TestDataManagerWindow:
         )
         title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
 
-        # ========== 左侧：列表 ==========
+        # ========== 左侧：测试数据列表（独立滚动） ==========
         left_frame = ttk.LabelFrame(main_container, text="测试数据列表", padding="10")
         left_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10))
 
-        # 列表框
-        list_frame = ttk.Frame(left_frame)
-        list_frame.pack(fill=tk.BOTH, expand=True)
+        # 使用Grid布局，上半部分是列表，下半部分是按钮
+        left_frame.rowconfigure(0, weight=1)  # 列表区域可以扩展
 
-        # 创建 Treeview（添加复选框列）
+        # ========== 列表区域（可滚动） ==========
+        list_container = ttk.Frame(left_frame)
+        list_container.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # 创建Treeview（自带滚动条）
         columns = ("select", "name", "question")
-        self.tree = ttk.Treeview(list_frame, columns=columns, show="headings", height=15)
+        self.tree = ttk.Treeview(list_container, columns=columns, show="headings")
 
         self.tree.heading("select", text="✓")
         self.tree.heading("name", text="名称")
@@ -77,11 +83,11 @@ class TestDataManagerWindow:
         self.tree.column("question", width=300)
 
         # 滚动条
-        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scrollbar.set)
+        tree_scrollbar = ttk.Scrollbar(list_container, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscrollcommand=tree_scrollbar.set)
 
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        tree_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         # 绑定选择事件
         self.tree.bind("<<TreeviewSelect>>", self._on_select)
@@ -90,72 +96,134 @@ class TestDataManagerWindow:
         # 绑定双击事件（显示详情弹窗）
         self.tree.bind("<Double-Button-1>", self._on_double_click)
 
-        # 按钮区域
+        # ========== 按钮区域（固定在底部，不滚动） ==========
         button_frame = ttk.Frame(left_frame)
-        button_frame.pack(fill=tk.X, pady=(10, 0))
+        button_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
 
         # 全选/取消全选按钮
         self.select_all_btn = ttk.Button(
             button_frame,
             text="☑ 全选",
-            command=self.toggle_select_all,
-            width=10
+            command=self.toggle_select_all
         )
-        self.select_all_btn.pack(side=tk.LEFT, padx=5)
+        self.select_all_btn.pack(fill=tk.X, pady=3)
 
+        # 批量删除按钮
         ttk.Button(
             button_frame,
             text="🗑 批量删除",
-            command=self.batch_delete,
-            width=10
-        ).pack(side=tk.LEFT, padx=5)
+            command=self.batch_delete
+        ).pack(fill=tk.X, pady=3)
 
+        # 保存按钮
         ttk.Button(
             button_frame,
             text="💾 保存",
-            command=self.save_test_data,
-            width=10
-        ).pack(side=tk.LEFT, padx=(20, 5))
+            command=self.save_test_data
+        ).pack(fill=tk.X, pady=3)
 
-        # ========== 右侧：详情 ==========
+        # ========== 右侧：详细信息表单（独立滚动） ==========
         right_frame = ttk.LabelFrame(main_container, text="详细信息", padding="10")
         right_frame.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
 
+        # 创建Canvas用于右侧滚动
+        right_canvas = tk.Canvas(right_frame, highlightthickness=0)
+        right_scrollbar = ttk.Scrollbar(right_frame, orient="vertical", command=right_canvas.yview)
+        right_scrollable_frame = ttk.Frame(right_canvas)
+
+        right_scrollable_frame.bind(
+            "<Configure>",
+            lambda e: right_canvas.configure(scrollregion=right_canvas.bbox("all"))
+        )
+
+        right_canvas_window = right_canvas.create_window((0, 0), window=right_scrollable_frame, anchor="nw")
+        right_canvas.configure(yscrollcommand=right_scrollbar.set)
+
+        # 当框架宽度改变时，调整canvas窗口宽度
+        def _configure_right_canvas(event):
+            canvas_width = event.width
+            right_canvas.itemconfig(right_canvas_window, width=canvas_width)
+
+        right_canvas.bind("<Configure>", _configure_right_canvas)
+
+        right_canvas.pack(side="left", fill="both", expand=True)
+        right_scrollbar.pack(side="right", fill="y")
+
+        # 鼠标滚轮支持 - 只绑定到当前canvas，不影响其他区域
+        def _on_right_mousewheel(event):
+            # 判断鼠标是否在右侧区域内
+            x = self.window.winfo_pointerx() - right_canvas.winfo_rootx()
+            y = self.window.winfo_pointery() - right_canvas.winfo_rooty()
+            if 0 <= x <= right_canvas.winfo_width() and 0 <= y <= right_canvas.winfo_height():
+                if event.num == 5 or event.delta < 0:
+                    right_canvas.yview_scroll(1, "units")
+                elif event.num == 4 or event.delta > 0:
+                    right_canvas.yview_scroll(-1, "units")
+
+        self.window.bind("<MouseWheel>", _on_right_mousewheel, add=True)
+        self.window.bind("<Button-4>", _on_right_mousewheel, add=True)
+        self.window.bind("<Button-5>", _on_right_mousewheel, add=True)
+
+        # 在可滚动框架中创建表单
         # 名称
-        ttk.Label(right_frame, text="名称:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Label(right_scrollable_frame, text="名称:").grid(row=0, column=0, sticky=tk.W, pady=5)
         self.name_var = tk.StringVar()
-        name_entry = ttk.Entry(right_frame, textvariable=self.name_var, width=50)
+        name_entry = ttk.Entry(right_scrollable_frame, textvariable=self.name_var, width=50)
         name_entry.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=5)
 
         # 问题
-        ttk.Label(right_frame, text="问题:").grid(row=2, column=0, sticky=tk.W, pady=5)
-        self.question_text = scrolledtext.ScrolledText(
-            right_frame,
+        ttk.Label(right_scrollable_frame, text="问题:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        self.question_text = tk.Text(
+            right_scrollable_frame,
             width=50,
             height=5,
-            font=("Arial", 10)
+            font=("Arial", 10),
+            wrap=tk.WORD
         )
         self.question_text.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=5)
 
         # 回答
-        ttk.Label(right_frame, text="回答:").grid(row=4, column=0, sticky=tk.W, pady=5)
-        self.answer_text = scrolledtext.ScrolledText(
-            right_frame,
+        ttk.Label(right_scrollable_frame, text="回答:").grid(row=4, column=0, sticky=tk.W, pady=5)
+        self.answer_text = tk.Text(
+            right_scrollable_frame,
             width=50,
             height=8,
-            font=("Arial", 10)
+            font=("Arial", 10),
+            wrap=tk.WORD
         )
         self.answer_text.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=5)
 
         # 上下文
-        ttk.Label(right_frame, text="上下文（可选）:").grid(row=6, column=0, sticky=tk.W, pady=5)
-        self.context_text = scrolledtext.ScrolledText(
-            right_frame,
+        ttk.Label(right_scrollable_frame, text="上下文（可选）:").grid(row=6, column=0, sticky=tk.W, pady=5)
+        self.context_text = tk.Text(
+            right_scrollable_frame,
             width=50,
             height=5,
-            font=("Arial", 10)
+            font=("Arial", 10),
+            wrap=tk.WORD
         )
         self.context_text.grid(row=7, column=0, sticky=(tk.W, tk.E), pady=5)
+
+        # 分组选择
+        ttk.Label(right_scrollable_frame, text="分组:").grid(row=8, column=0, sticky=tk.W, pady=5)
+
+        # 分组选择容器 - 使用列表形式，不限制高度
+        groups_container = ttk.Frame(right_scrollable_frame)
+        groups_container.grid(row=9, column=0, sticky=(tk.W, tk.E), pady=5)
+
+        # 获取所有分组并创建复选框
+        test_groups = self.config_manager.get_test_groups()
+        for i, group in enumerate(test_groups):
+            var = tk.BooleanVar(value=False)
+            self.group_vars[group["name"]] = var
+
+            chk = ttk.Checkbutton(
+                groups_container,
+                text=group["name"],
+                variable=var
+            )
+            # 单列布局，垂直排列
+            chk.grid(row=i, column=0, sticky=tk.W, padx=5, pady=2)
 
         # 配置网格权重
         self.window.columnconfigure(0, weight=1)
@@ -163,7 +231,7 @@ class TestDataManagerWindow:
         main_container.columnconfigure(0, weight=1)
         main_container.columnconfigure(1, weight=2)
         main_container.rowconfigure(1, weight=1)
-        right_frame.columnconfigure(0, weight=1)
+        right_scrollable_frame.columnconfigure(0, weight=1)
 
     def load_test_data(self):
         """加载测试数据"""
@@ -266,6 +334,12 @@ class TestDataManagerWindow:
         self.answer_text.insert(1.0, test_data.get('answer', ''))
         self.context_text.insert(1.0, test_data.get('context', ''))
 
+        # 填充分组选择
+        test_groups = test_data.get('groups', [])
+        for group_name, var in self.group_vars.items():
+            # 如果该分组在测试数据的分组列表中，则选中
+            var.set(group_name in test_groups)
+
     def delete_test_data(self):
         """删除测试数据"""
         selection = self.tree.selection()
@@ -287,6 +361,10 @@ class TestDataManagerWindow:
             self.question_text.delete(1.0, tk.END)
             self.answer_text.delete(1.0, tk.END)
             self.context_text.delete(1.0, tk.END)
+
+            # 清空分组选择
+            for var in self.group_vars.values():
+                var.set(False)
 
             messagebox.showinfo("成功", "测试数据已删除")
 
@@ -310,12 +388,19 @@ class TestDataManagerWindow:
             messagebox.showerror("错误", "请输入回答")
             return
 
+        # 收集选中的分组
+        selected_groups = []
+        for group_name, var in self.group_vars.items():
+            if var.get():
+                selected_groups.append(group_name)
+
         # 创建测试数据
         test_data = {
             'name': name,
             'question': question,
             'answer': answer,
-            'context': context
+            'context': context,
+            'groups': selected_groups
         }
 
         # 保存
@@ -329,6 +414,10 @@ class TestDataManagerWindow:
         self.question_text.delete(1.0, tk.END)
         self.answer_text.delete(1.0, tk.END)
         self.context_text.delete(1.0, tk.END)
+
+        # 清空分组选择
+        for var in self.group_vars.values():
+            var.set(False)
 
         messagebox.showinfo("成功", "测试数据已保存")
 
@@ -410,6 +499,10 @@ class TestDataManagerWindow:
         self.question_text.delete(1.0, tk.END)
         self.answer_text.delete(1.0, tk.END)
         self.context_text.delete(1.0, tk.END)
+
+        # 清空分组选择
+        for var in self.group_vars.values():
+            var.set(False)
 
         messagebox.showinfo("成功", f"已成功删除 {success_count} 条测试数据")
 
@@ -590,7 +683,7 @@ class TestDataDetailPopup:
         ttk.Label(main_frame, text="分组:", font=("Arial", 11, "bold")).grid(
             row=5, column=0, sticky=tk.NW, pady=10)
 
-        # 分组选择容器
+        # 分组选择容器 - 使用列表形式，不限制高度
         groups_frame = ttk.Frame(main_frame)
         groups_frame.grid(row=5, column=1, sticky=(tk.W, tk.E), pady=10)
 
@@ -612,7 +705,8 @@ class TestDataDetailPopup:
                 text=group["name"],
                 variable=var
             )
-            chk.grid(row=i//3, column=i%3, sticky=tk.W, padx=10, pady=5)
+            # 单列布局，垂直排列
+            chk.grid(row=i, column=0, sticky=tk.W, padx=5, pady=2)
 
         # 按钮区域
         button_frame = ttk.Frame(main_frame)
