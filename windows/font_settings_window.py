@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config_manager import ConfigManager
 
 
+from utils.window_helpers import bind_esc_key
 class FontSettingsWindow:
     """字体设置窗口"""
 
@@ -37,6 +38,8 @@ class FontSettingsWindow:
 
         # 居中显示
         self.center_window()
+        # 在界面完全创建后再绑定ESC键
+        self.window.after(100, lambda: bind_esc_key(self.window))
 
     def create_interface(self):
         """创建界面"""

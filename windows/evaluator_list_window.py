@@ -14,6 +14,7 @@ from font_utils import font_manager
 from windows.scoring_rules_table import ScoringRulesTable
 
 
+from utils.window_helpers import bind_esc_key
 class EvaluatorListWindow:
     """评估器列表窗口"""
 
@@ -36,6 +37,9 @@ class EvaluatorListWindow:
 
         # 居中显示
         self.center_window()
+
+        # 在界面完全创建后再绑定ESC键
+        self.window.after(100, lambda: bind_esc_key(self.window))
 
     def create_interface(self):
         """创建界面"""

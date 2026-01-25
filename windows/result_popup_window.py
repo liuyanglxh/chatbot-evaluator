@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext
 import threading
 from font_utils import font_manager
+from utils.window_helpers import bind_esc_key
 
 
 def format_number(value):
@@ -61,6 +62,9 @@ class ResultPopupWindow:
         self.window.geometry("900x800")  # 增加高度：800 -> 900
         self.window.transient(parent)
         self.window.grab_set()
+
+        # 绑定ESC键关闭
+        bind_esc_key(self.window)
 
         # 设置背景色
         self.window.configure(bg="#F7FAFC")
@@ -773,6 +777,10 @@ class ResultPopupWindow:
         translation_window.geometry("700x400")
         translation_window.transient(self.window)
         translation_window.grab_set()
+
+        # 绑定ESC键关闭
+        bind_esc_key(translation_window)
+
         translation_window.configure(bg="#F7FAFC")
 
         # 主容器

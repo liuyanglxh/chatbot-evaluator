@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from config_manager import ConfigManager
 from font_utils import font_manager
+from utils.window_helpers import bind_esc_key
 
 
 class GroupManagerWindow:
@@ -29,6 +30,9 @@ class GroupManagerWindow:
 
         # 居中显示
         self.center_window()
+
+        # 在界面完全创建后再绑定ESC键（确保不会被其他组件覆盖）
+        self.window.after(100, lambda: bind_esc_key(self.window))
 
     def center_window(self):
         """将窗口居中显示"""
@@ -60,8 +64,12 @@ class GroupManagerWindow:
         left_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10))
 
         # 创建Treeview显示分组列表
-        columns = ("name", "description")
+        columns = ("id", "name", "description")
         self.tree = ttk.Treeview(left_frame, columns=columns, show="headings", height=15)
+
+        # ID列隐藏（显示宽度为0）
+        self.tree.heading("id", text="ID")
+        self.tree.column("id", width=0, stretch=False)
 
         self.tree.heading("name", text="分组名称")
         self.tree.heading("description", text="描述")
@@ -146,7 +154,8 @@ class GroupManagerWindow:
         groups = self.config_manager.get_test_groups()
 
         for group in groups:
-            self.tree.insert("", tk.END, values=(group["name"], group.get("description", "")))
+            # 将ID存储在values中（不显示），用于后续操作
+            self.tree.insert("", tk.END, values=(group["id"], group["name"], group.get("description", "")), tags=(group["id"],))
 
     def _on_group_selected(self, event):
         """分组选择事件"""
@@ -168,13 +177,14 @@ class GroupManagerWindow:
             messagebox.showwarning("警告", "请先选择要修改的分组")
             return
 
-        # 获取选中的分组名称
+        # 获取选中的分组ID和名称
         item = selection[0]
         values = self.tree.item(item, "values")
-        group_name = values[0]
+        group_id = values[0]  # ID在第一列
+        group_name = values[1]  # 名称在第二列
 
         # 打开编辑对话框
-        GroupEditDialog(self.window, group_name, self.config_manager, self.load_groups)
+        GroupEditDialog(self.window, group_id, group_name, self.config_manager, self.load_groups)
 
     def delete_group(self):
         """删除分组"""
@@ -183,10 +193,11 @@ class GroupManagerWindow:
             messagebox.showwarning("警告", "请先选择要删除的分组")
             return
 
-        # 获取选中的分组名称
+        # 获取选中的分组ID和名称
         item = selection[0]
         values = self.tree.item(item, "values")
-        group_name = values[0]
+        group_id = values[0]  # ID在第一列
+        group_name = values[1]  # 名称在第二列
 
         # 确认删除
         confirm = messagebox.askyesno(
@@ -198,8 +209,8 @@ class GroupManagerWindow:
         if not confirm:
             return
 
-        # 删除分组
-        success = self.config_manager.remove_test_group(group_name)
+        # 删除分组（使用ID）
+        success = self.config_manager.remove_test_group(group_id)
 
         if success:
             messagebox.showinfo("成功", f"分组「{group_name}」已删除")
@@ -211,22 +222,23 @@ class GroupManagerWindow:
 class GroupEditDialog:
     """分组编辑对话框（新增/修改）"""
 
-    def __init__(self, parent, group_name, config_manager, callback):
-        self.group_name = group_name  # None表示新增，否则表示修改
+    def __init__(self, parent, group_id, group_name, config_manager, callback):
+        self.group_id = group_id  # None表示新增，否则表示修改
+        self.group_name = group_name  # 分组名称（用于显示和查找）
         self.config_manager = config_manager
         self.callback = callback  # 编辑完成后的回调函数
 
         # 创建对话框窗口
         self.dialog = tk.Toplevel(parent)
-        self.dialog.title("新增分组" if group_name is None else "修改分组")
+        self.dialog.title("新增分组" if group_id is None else "修改分组")
         self.dialog.transient(parent)
         self.dialog.grab_set()
 
         # 如果是修改，加载原有数据
-        if group_name:
+        if group_id:
             groups = self.config_manager.get_test_groups()
             for group in groups:
-                if group["name"] == group_name:
+                if group["id"] == group_id:
                     self.original_data = group
                     break
         else:
@@ -241,6 +253,9 @@ class GroupEditDialog:
         required_height = self.dialog.winfo_reqheight()
         self.dialog.geometry(f'{required_width}x{required_height}')
         self.center_dialog()
+
+        # 在界面完全创建后再绑定ESC键
+        self.dialog.after(100, lambda: bind_esc_key(self.dialog))
 
     def center_dialog(self):
         """将对话框居中显示"""
@@ -260,7 +275,7 @@ class GroupEditDialog:
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         # 标题
-        title = "新增分组" if self.group_name is None else "修改分组"
+        title = "新增分组" if self.group_id is None else "修改分组"
         title_label = ttk.Label(
             main_frame,
             text=title,
@@ -333,12 +348,12 @@ class GroupEditDialog:
         groups = self.config_manager.get_test_groups()
         for group in groups:
             if group["name"] == name:
-                if self.group_name is None or group["name"] != self.group_name:
+                if self.group_id is None or group["id"] != self.group_id:
                     messagebox.showerror("错误", f"分组名称「{name}」已存在")
                     return
 
         # 保存
-        if self.group_name is None:
+        if self.group_id is None:
             # 新增
             success = self.config_manager.add_test_group(name, description)
             if success:
@@ -346,8 +361,8 @@ class GroupEditDialog:
             else:
                 messagebox.showerror("错误", f"添加分组「{name}」失败")
         else:
-            # 修改
-            success = self.config_manager.update_test_group(self.group_name, name, description)
+            # 修改（使用group_id）
+            success = self.config_manager.update_test_group(self.group_id, name, description)
             if success:
                 messagebox.showinfo("成功", f"分组「{name}」已修改")
             else:

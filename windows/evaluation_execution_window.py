@@ -14,6 +14,7 @@ from config_manager import ConfigManager
 from evaluators import get_executor
 from font_utils import font_manager
 from windows.conversation_turns_editor import ConversationTurnsEditor
+from utils.window_helpers import bind_esc_key
 
 
 def format_number(value):
@@ -47,6 +48,9 @@ class EvaluationExecutionWindow:
         self.window.geometry("900x750")
         self.window.transient(parent)
         self.window.grab_set()
+
+        # 绑定ESC键关闭
+        bind_esc_key(self.window)
 
         # 创建界面
         self.create_interface()
@@ -388,6 +392,9 @@ class EvaluationExecutionWindow:
         dialog.transient(self.window)
         dialog.grab_set()
 
+        # 绑定ESC键关闭
+        bind_esc_key(dialog)
+
         # 居中显示
         dialog.update_idletasks()
         x = self.window.winfo_x() + (self.window.winfo_width() - 400) // 2
@@ -454,6 +461,9 @@ class EvaluationExecutionWindow:
         dialog.geometry("700x500")
         dialog.transient(self.window)
         dialog.grab_set()
+
+        # 绑定ESC键关闭
+        bind_esc_key(dialog)
 
         # 主框架
         main_frame = ttk.Frame(dialog, padding="20")
@@ -637,6 +647,9 @@ class BatchTestSelectionWindow:
         self.window.geometry("800x600")
         self.window.transient(parent)
         self.window.grab_set()
+
+        # 绑定ESC键关闭
+        bind_esc_key(self.window)
 
         # 创建界面
         self.create_interface()
@@ -1025,6 +1038,9 @@ class BatchEvaluationExecutor:
         self.progress_window.transient(parent)
         self.progress_window.grab_set()
 
+        # 绑定ESC键关闭
+        bind_esc_key(self.progress_window)
+
         # 主框架
         main_frame = ttk.Frame(self.progress_window, padding="20")
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -1170,6 +1186,9 @@ class BatchResultWindow:
         self.window.title(f"批量测试结果 - {evaluator_info['name']}")
         self.window.geometry("900x700")
         self.window.transient(parent)
+
+        # 绑定ESC键关闭
+        bind_esc_key(self.window)
 
         # 创建界面
         self.create_interface()

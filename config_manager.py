@@ -390,19 +390,22 @@ class ConfigManager:
             if group["name"] == group_name:
                 return False  # 已存在
 
+        # 生成唯一ID
+        import uuid
         config["test_groups"].append({
+            "id": str(uuid.uuid4()),
             "name": group_name,
             "description": description
         })
 
         return self.save_config(config)
 
-    def remove_test_group(self, group_name: str) -> bool:
+    def remove_test_group(self, group_id: str) -> bool:
         """
         删除测试分组
 
         Args:
-            group_name: 分组名称
+            group_id: 分组ID
 
         Returns:
             是否成功
@@ -415,23 +418,24 @@ class ConfigManager:
         # 删除分组
         config["test_groups"] = [
             g for g in config["test_groups"]
-            if g["name"] != group_name
+            if g["id"] != group_id
         ]
 
         # 同时需要从所有测试数据中移除该分组
         if "test_data" in config:
             for test_data in config["test_data"]:
-                if "groups" in test_data and group_name in test_data["groups"]:
-                    test_data["groups"].remove(group_name)
+                if test_data.get("group_id") == group_id:
+                    test_data["group_id"] = ""
+                    test_data["group_name"] = ""
 
         return self.save_config(config)
 
-    def update_test_group(self, old_name: str, new_name: str, description: str = "") -> bool:
+    def update_test_group(self, group_id: str, new_name: str, description: str = "") -> bool:
         """
         更新测试分组
 
         Args:
-            old_name: 旧名称
+            group_id: 分组ID
             new_name: 新名称
             description: 描述
 
@@ -445,17 +449,15 @@ class ConfigManager:
 
         # 更新分组名称和描述
         for group in config["test_groups"]:
-            if group["name"] == old_name:
+            if group["id"] == group_id:
                 group["name"] = new_name
                 group["description"] = description
                 break
 
-        # 同时需要更新所有测试数据中的分组名称
+        # 同时需要更新所有测试数据中的group_name字段（group_id保持不变）
         if "test_data" in config:
             for test_data in config["test_data"]:
-                if "groups" in test_data and old_name in test_data["groups"]:
-                    # 替换分组名称
-                    idx = test_data["groups"].index(old_name)
-                    test_data["groups"][idx] = new_name
+                if test_data.get("group_id") == group_id:
+                    test_data["group_name"] = new_name
 
         return self.save_config(config)

@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config_manager import ConfigManager
 
 
+from utils.window_helpers import bind_esc_key
 class TestDataManagerWindow:
     """测试数据管理窗口"""
 
@@ -893,6 +894,8 @@ class TestDataDetailPopup:
         if new_height != current_height:
             text_widget.config(height=new_height)
 
+        # 在界面完全创建后再绑定ESC键
+        self.window.after(100, lambda: bind_esc_key(self.window))
     def center_window(self):
         """窗口居中显示"""
         self.window.update_idletasks()
