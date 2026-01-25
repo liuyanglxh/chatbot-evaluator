@@ -224,35 +224,110 @@ class EvaluatorListWindow:
             messagebox.showwarning("警告", "请先选择要使用的评估器")
             return
 
-        # 获取选中项的完整信息
-        item = self.tree.item(selection[0])
-        values = item['values']
+        # 显示加载动画
+        loading_window = self._show_loading_window("正在加载评估器...")
 
-        # 获取评估器ID，然后加载完整数据
-        evaluator_id = self.evaluator_id_map.get(selection[0])
+        # 延迟执行加载操作，让UI有时间显示加载动画
+        self.window.after(100, lambda: self._load_evaluator_with_loading(selection[0], loading_window))
 
-        if not evaluator_id:
-            messagebox.showerror("错误", "无法获取评估器ID")
+    def _show_loading_window(self, message):
+        """显示加载动画窗口"""
+        loading = tk.Toplevel(self.window)
+        loading.title("加载中")
+        loading.geometry("350x150")
+        loading.transient(self.window)
+        loading.grab_set()
+        loading.resizable(False, False)
+
+        # 居中显示
+        loading.update_idletasks()
+        width = loading.winfo_width()
+        height = loading.winfo_height()
+        screen_width = loading.winfo_screenwidth()
+        screen_height = loading.winfo_screenheight()
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+        loading.geometry(f'{width}x{height}+{x}+{y}')
+
+        # 创建内容
+        frame = ttk.Frame(loading, padding="20")
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        # 加载图标（使用Unicode字符模拟动画）
+        self.loading_label = ttk.Label(
+            frame,
+            text="⏳",
+            font=("Arial", 36),
+            anchor=tk.CENTER
+        )
+        self.loading_label.pack(pady=(10, 20))
+
+        # 加载文字
+        label = ttk.Label(
+            frame,
+            text=message,
+            font=("Arial", 11),
+            anchor=tk.CENTER
+        )
+        label.pack()
+
+        # 启动动画
+        self._animate_loading(loading)
+
+        return loading
+
+    def _animate_loading(self, window):
+        """加载动画"""
+        loading_chars = ["⏳", "⌛", "⏳"]
+        if not window.winfo_exists():
             return
 
-        # 从配置中加载完整的评估器数据（包含scoring_rules等）
-        evaluators = self.config_manager.get_evaluators()
-        evaluator_data = None
-        for evaluator in evaluators:
-            if evaluator.get("id") == evaluator_id:
-                evaluator_data = evaluator
-                break
+        current_char = getattr(self, '_loading_char_index', 0)
+        self.loading_label.config(text=loading_chars[current_char])
+        self._loading_char_index = (current_char + 1) % len(loading_chars)
 
-        if not evaluator_data:
-            messagebox.showerror("错误", "无法加载评估器数据")
-            return
+        # 继续动画
+        window.after(500, lambda: self._animate_loading(window))
 
-        # 使用完整的评估器数据
-        evaluator_info = evaluator_data
+    def _load_evaluator_with_loading(self, selection_id, loading_window):
+        """在显示加载动画的情况下加载评估器"""
+        try:
+            # 获取评估器ID
+            evaluator_id = self.evaluator_id_map.get(selection_id)
 
-        # 打开评估执行窗口
-        from windows.evaluation_execution_window import EvaluationExecutionWindow
-        EvaluationExecutionWindow(self.window, evaluator_info)
+            if not evaluator_id:
+                loading_window.destroy()
+                messagebox.showerror("错误", "无法获取评估器ID")
+                return
+
+            # 从配置中加载完整的评估器数据（包含scoring_rules等）
+            evaluators = self.config_manager.get_evaluators()
+            evaluator_data = None
+            for evaluator in evaluators:
+                if evaluator.get("id") == evaluator_id:
+                    evaluator_data = evaluator
+                    break
+
+            if not evaluator_data:
+                loading_window.destroy()
+                messagebox.showerror("错误", "无法加载评估器数据")
+                return
+
+            # 使用完整的评估器数据
+            evaluator_info = evaluator_data
+
+            # 关闭加载窗口
+            if loading_window.winfo_exists():
+                loading_window.destroy()
+
+            # 打开评估执行窗口
+            from windows.evaluation_execution_window import EvaluationExecutionWindow
+            EvaluationExecutionWindow(self.window, evaluator_info)
+
+        except Exception as e:
+            if loading_window.winfo_exists():
+                loading_window.destroy()
+            messagebox.showerror("错误", f"加载评估器失败: {str(e)}")
 
     def delete_selected(self):
         """删除选中的评估器"""
