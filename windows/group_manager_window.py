@@ -88,6 +88,8 @@ class GroupManagerWindow:
 
         # 绑定选择事件
         self.tree.bind("<<TreeviewSelect>>", self._on_group_selected)
+        # 绑定双击事件
+        self.tree.bind("<Double-Button-1>", self._on_double_click)
 
         # ========== 右侧：操作面板 ==========
         right_frame = ttk.Frame(main_frame)
@@ -149,6 +151,10 @@ class GroupManagerWindow:
     def _on_group_selected(self, event):
         """分组选择事件"""
         pass  # 可以在这里实现选中后自动填充编辑表单
+
+    def _on_double_click(self, event):
+        """双击事件 - 打开编辑对话框"""
+        self.edit_group()
 
     def add_group(self):
         """添加分组"""
@@ -213,7 +219,6 @@ class GroupEditDialog:
         # 创建对话框窗口
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("新增分组" if group_name is None else "修改分组")
-        self.dialog.geometry("400x250")
         self.dialog.transient(parent)
         self.dialog.grab_set()
 
@@ -230,7 +235,11 @@ class GroupEditDialog:
         # 创建界面
         self.create_interface()
 
-        # 居中显示
+        # 更新窗口大小并居中显示
+        self.dialog.update_idletasks()
+        required_width = self.dialog.winfo_reqwidth()
+        required_height = self.dialog.winfo_reqheight()
+        self.dialog.geometry(f'{required_width}x{required_height}')
         self.center_dialog()
 
     def center_dialog(self):
@@ -266,17 +275,30 @@ class GroupEditDialog:
 
         # 描述
         ttk.Label(main_frame, text="描述:").grid(row=2, column=0, sticky=tk.NW, pady=10)
-        self.description_text = tk.Text(main_frame, width=30, height=5, font=font_manager.panel_font(), wrap=tk.WORD)
+        self.description_text = tk.Text(
+            main_frame,
+            width=35,
+            height=2,  # 初始2行，会动态调整
+            font=font_manager.panel_font(),
+            wrap=tk.WORD,
+            padx=5,
+            pady=5
+        )
         self.description_text.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=10)
+
+        # 绑定KeyRelease事件，动态调整高度
+        self.description_text.bind("<KeyRelease>", self._adjust_text_height)
 
         # 如果是修改，填充原有数据
         if self.original_data:
             self.name_entry.insert(0, self.original_data["name"])
             self.description_text.insert(1.0, self.original_data.get("description", ""))
+            # 填充后调整高度
+            self._adjust_text_height()
 
         # 按钮框架
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=3, column=0, columnspan=2, pady=(20, 0))
+        button_frame.grid(row=3, column=0, columnspan=2, pady=(20, 0), sticky="w")
 
         ttk.Button(
             button_frame,
@@ -294,7 +316,6 @@ class GroupEditDialog:
 
         # 配置网格权重
         self.dialog.columnconfigure(0, weight=1)
-        self.dialog.rowconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
 
     def save_group(self):
@@ -335,3 +356,38 @@ class GroupEditDialog:
         # 关闭对话框并刷新列表
         self.dialog.destroy()
         self.callback()
+
+    def _adjust_text_height(self, event=None):
+        """动态调整Text组件高度（基于视觉行数，包括自动换行）"""
+        # 获取文本内容
+        content = self.description_text.get(1.0, tk.END).strip()
+
+        # 让Tkinter重新计算布局
+        self.description_text.update_idletasks()
+
+        # 获取基于实际显示的行数（包括自动换行）
+        try:
+            line_count = int(self.description_text.index('end-1c').split('.')[0])
+        except:
+            line_count = content.count('\n') + 1  # 降级方案
+
+        # 计算新高度：最少2行，最多15行
+        new_height = max(2, min(line_count, 15))
+
+        # 如果高度有变化，更新
+        current_height = int(self.description_text.cget('height'))
+        if new_height != current_height:
+            self.description_text.config(height=new_height)
+
+        # 每次都更新窗口大小和位置
+        self.dialog.update_idletasks()
+
+        # 获取当前需要的宽高
+        required_width = self.dialog.winfo_reqwidth()
+        required_height = self.dialog.winfo_reqheight()
+
+        # 更新窗口geometry
+        self.dialog.geometry(f'{required_width}x{required_height}')
+        self.center_dialog()
+
+
