@@ -250,7 +250,7 @@ class EvaluationExecutionWindow:
         if self.current_group_filter != "全部":
             test_data_list = [
                 td for td in test_data_list
-                if self.current_group_filter in td.get("groups", [])
+                if td.get('group', '') == self.current_group_filter
             ]
 
         test_data_names = [td['name'] for td in test_data_list]
@@ -265,7 +265,7 @@ class EvaluationExecutionWindow:
         self._load_selected_test_data()
 
     def _load_selected_test_data(self):
-        """加载选中的测试数据"""
+        """加载选中的测试数据（支持单轮和多轮）"""
         selected_name = self.test_data_combo.get()
 
         if not selected_name:
@@ -274,13 +274,53 @@ class EvaluationExecutionWindow:
         # 获取测试数据
         test_data = self.config_manager.get_test_data_by_name(selected_name)
 
-        if test_data:
-            # 清空现有内容
-            self.question_text.delete(1.0, tk.END)
-            self.answer_text.delete(1.0, tk.END)
-            self.context_text.delete(1.0, tk.END)
+        if not test_data:
+            return
 
-            # 填充数据
+        # 清空现有内容
+        self.question_text.delete(1.0, tk.END)
+        self.answer_text.delete(1.0, tk.END)
+        self.context_text.delete(1.0, tk.END)
+
+        # 检查是否有turns字段（新数据结构）
+        if 'turns' in test_data and test_data['turns']:
+            turns = test_data['turns']
+
+            # 检查评估器的turn_mode
+            turn_mode = self.evaluator_info.get('turn_mode', 'single')
+
+            if turn_mode == 'multi' and len(turns) > 1:
+                # 多轮评估器 + 多轮数据：拼接所有轮次
+                conversation_parts = []
+                for i, turn in enumerate(turns, 1):
+                    question = turn.get("question", "").strip()
+                    answer = turn.get("answer", "").strip()
+                    context = turn.get("context", "").strip()
+
+                    turn_text = f"第{i}轮:\n问题: {question}\n回答: {answer}"
+                    if context:
+                        turn_text += f"\n参考资料: {context}"
+                    turn_text += "\n"
+
+                    conversation_parts.append(turn_text)
+
+                # 拼接并填入question字段
+                full_conversation = "\n".join(conversation_parts)
+                self.question_text.insert(1.0, full_conversation)
+
+                # answer和context留空（多轮模式下不需要）
+                self.answer_text.insert(1.0, "")
+                self.context_text.insert(1.0, "")
+
+            else:
+                # 单轮模式或只有一轮：只加载第一轮
+                first_turn = turns[0]
+                self.question_text.insert(1.0, first_turn.get('question', ''))
+                self.answer_text.insert(1.0, first_turn.get('answer', ''))
+                self.context_text.insert(1.0, first_turn.get('context', ''))
+
+        else:
+            # 旧数据结构（直接有question/answer/context字段）
             self.question_text.insert(1.0, test_data.get('question', ''))
             self.answer_text.insert(1.0, test_data.get('answer', ''))
             self.context_text.insert(1.0, test_data.get('context', ''))
@@ -726,11 +766,11 @@ class BatchTestSelectionWindow:
         # 加载所有测试数据
         test_data_list = self.config_manager.get_test_data_list()
 
-        # 根据分组筛选
+        # 根据分组筛选（与测试数据管理窗口保持一致）
         if self.current_group_filter != "全部":
             test_data_list = [
                 td for td in test_data_list
-                if self.current_group_filter in td.get("groups", [])
+                if td.get('group', '') == self.current_group_filter
             ]
 
         for td in test_data_list:
@@ -909,8 +949,46 @@ class BatchEvaluationExecutor:
                             "_original_id": test_data.get("id", "")
                         })
             else:
-                # 多轮模式：直接使用原始数据，不做拆分
-                processed_list.append(test_data)
+                # 多轮模式：把所有轮次拼接成一个完整的多轮对话文本
+                if turns:
+                    # 构建多轮对话文本
+                    conversation_parts = []
+                    for i, turn in enumerate(turns, 1):
+                        question = turn.get("question", "").strip()
+                        answer = turn.get("answer", "").strip()
+                        context = turn.get("context", "").strip()
+
+                        # 构建单轮对话文本
+                        turn_text = f"第{i}轮:\n问题: {question}\n回答: {answer}"
+                        if context:
+                            turn_text += f"\n参考资料: {context}"
+                        turn_text += "\n"
+
+                        conversation_parts.append(turn_text)
+
+                    # 拼接所有轮次
+                    full_conversation = "\n".join(conversation_parts)
+
+                    # 创建处理后的数据
+                    processed_data = {
+                        "name": test_data['name'],
+                        "question": full_conversation,  # 用完整对话作为question
+                        "answer": "",  # 多轮模式下不需要单独的answer
+                        "context": "",  # 多轮模式下不需要单独的context
+                        "_original_id": test_data.get("id", ""),
+                        "_is_multi_turn": True,  # 标记为多轮对话
+                        "_turn_count": len(turns)
+                    }
+                    processed_list.append(processed_data)
+                else:
+                    # 没有turns,兼容旧数据结构
+                    processed_list.append({
+                        "name": test_data['name'],
+                        "question": test_data.get("question", ""),
+                        "answer": test_data.get("answer", ""),
+                        "context": test_data.get("context", ""),
+                        "_original_id": test_data.get("id", "")
+                    })
 
         return processed_list
 

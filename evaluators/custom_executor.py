@@ -50,31 +50,36 @@ class CustomExecutor:
         执行评估
 
         Args:
-            question: 用户问题
-            answer: Chatbot 回答
-            context: 上下文（可选）
+            question: 用户问题（多轮模式下为完整对话文本）
+            answer: Chatbot 回答（多轮模式下为空）
+            context: 上下文（多轮模式下为空）
             model_settings: 大模型配置
 
         Returns:
             评估结果字典
         """
         try:
-            # 1. 创建模型
+            # 1. 检测是否为多轮对话
+            is_multi_turn = self._is_multi_turn_conversation(question)
+
+            # 2. 创建模型
             model = get_model(
                 model_settings['model_type'],
                 model_settings['base_url'],
                 model_settings['api_key']
             )
 
-            # 2. 生成Prompt
-            prompt = self._build_prompt(question, answer, context)
+            # 3. 生成Prompt
+            prompt = self._build_prompt(question, answer, context, is_multi_turn)
 
             print(f"\n{'='*60}")
+            if is_multi_turn:
+                print(f"【多轮对话评估】")
             print(f"发送给LLM的Prompt:")
             print(f"{prompt}")
             print(f"{'='*60}\n")
 
-            # 3. 调用LLM
+            # 4. 调用LLM
             response = model._send_request(prompt)
 
             if not response.get('success'):
@@ -92,14 +97,14 @@ class CustomExecutor:
             print(f"{llm_response}")
             print(f"{'='*60}\n")
 
-            # 4. 解析响应
+            # 5. 解析响应
             result = self._parse_response(llm_response)
 
-            # 5. 判断是否通过
+            # 6. 判断是否通过
             score = result['score']
             passed = score >= self.threshold
 
-            # 6. 构建返回结果
+            # 7. 构建返回结果
             return {
                 'success': True,
                 'score': score,
@@ -111,6 +116,7 @@ class CustomExecutor:
                     'answer': answer,
                     'context': context
                 },
+                'is_multi_turn': is_multi_turn,  # 标记是否为多轮评估
                 'is_english': self._is_english_text(result['reason'])
             }
 
@@ -125,7 +131,12 @@ class CustomExecutor:
                 'debug_info': error_details
             }
 
-    def _build_prompt(self, question: str, answer: str, context: str) -> str:
+    def _is_multi_turn_conversation(self, question: str) -> bool:
+        """检测是否为多轮对话"""
+        # 多轮对话以"第1轮:"开头
+        return question.strip().startswith("第1轮:")
+
+    def _build_prompt(self, question: str, answer: str, context: str, is_multi_turn: bool = False) -> str:
         """构建评估Prompt"""
 
         # 构建评分标准部分
@@ -135,7 +146,42 @@ class CustomExecutor:
             description = rule['description']
             rules_text += f"- 如果符合以下标准：\"{description}\"\n  则给出分数：{score}\n\n"
 
-        prompt = f"""你是一个专业的评估助手。请根据以下评分标准对回答进行评估。
+        if is_multi_turn:
+            # 多轮对话的Prompt
+            prompt = f"""你是一个专业的评估助手。请根据以下评分标准对多轮对话进行评估。
+
+## 评分标准
+
+{rules_text}
+## 输入数据
+
+以下是一段多轮对话:
+
+{question}
+
+## 评估要求
+
+1. 仔细阅读并理解整个多轮对话
+2. 根据上述评分标准，选择最符合的一个分数
+3. **必须从给定的分数中选择一个**，不能自定义其他分数
+4. 给出详细的评分原因，说明为什么选择这个分数
+5. 如果回答符合多个标准，选择分数最高的那个
+6. 评估时应该关注整体对话的质量和连贯性
+
+## 输出格式
+
+请严格按照以下JSON格式返回结果，不要添加任何其他文字、解释或markdown标记：
+
+{{
+  "score": <分数，从上述标准中选择一个>,
+  "reason": "<评分原因，详细说明为什么选择这个分数>"
+}}
+
+**重要：** 只返回JSON，不要有其他内容！
+"""
+        else:
+            # 单轮对话的Prompt
+            prompt = f"""你是一个专业的评估助手。请根据以下评分标准对回答进行评估。
 
 ## 评分标准
 

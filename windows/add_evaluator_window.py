@@ -185,19 +185,25 @@ class AddEvaluatorWindow:
         self.turn_mode_var = tk.StringVar(value="single")
 
         # 单选按钮
-        ttk.Radiobutton(
+        self.turn_mode_single_radio = ttk.Radiobutton(
             turn_mode_frame,
             text="单轮对话（每个测试数据单独评估）",
             variable=self.turn_mode_var,
             value="single"
-        ).pack(anchor=tk.W)
+        )
+        self.turn_mode_single_radio.pack(anchor=tk.W)
 
-        ttk.Radiobutton(
+        self.turn_mode_multi_radio = ttk.Radiobutton(
             turn_mode_frame,
             text="多轮对话（评估完整的多轮对话）",
             variable=self.turn_mode_var,
             value="multi"
-        ).pack(anchor=tk.W)
+        )
+        self.turn_mode_multi_radio.pack(anchor=tk.W)
+
+        # 保存对话模式的label和frame引用,用于隐藏
+        self.turn_mode_label = main_frame.grid_slaves(row=4, column=0)[0]
+        self.turn_mode_frame = turn_mode_frame
 
         # 阈值设置
         self.threshold_label = ttk.Label(main_frame, text="阈值 (0-1):")
@@ -244,6 +250,10 @@ class AddEvaluatorWindow:
 
         # 初始渲染下方内容
         self._render_lower_section()
+
+        # 初始化对话模式显示状态(默认隐藏,因为framework为空)
+        self.turn_mode_label.grid_remove()
+        self.turn_mode_frame.grid_remove()
 
     def _render_lower_section(self):
         """完全重新渲染下方内容（解决切换框架时的残留问题）"""
@@ -414,6 +424,17 @@ class AddEvaluatorWindow:
     def on_framework_change(self):
         """框架选择改变时的回调"""
         framework = self.framework_var.get()
+
+        # 根据框架显示/隐藏对话模式选项
+        if framework == "custom":
+            # 自定义框架:显示对话模式选项
+            self.turn_mode_label.grid()
+            self.turn_mode_frame.grid()
+        else:
+            # Ragas和DeepEval:隐藏对话模式选项,默认为单轮
+            self.turn_mode_label.grid_remove()
+            self.turn_mode_frame.grid_remove()
+            self.turn_mode_var.set("single")  # 强制设置为单轮
 
         if framework == "ragas":
             # Ragas 支持的评估器类型

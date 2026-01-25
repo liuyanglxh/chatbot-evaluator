@@ -575,9 +575,39 @@ class TestDataDetailPopup:
             font=font_manager.panel_title_font()
         ).grid(row=5, column=0, columnspan=2, pady=(0, 10))
 
-        # 轮次容器
+        # 按钮区域（三个按钮放到一行）
+        button_container = ttk.Frame(main_frame)
+        button_container.grid(row=6, column=0, columnspan=2, pady=15)
+
+        # 添加一轮对话按钮
+        ttk.Button(
+            button_container,
+            text="➕ 添加一轮对话",
+            command=self._add_new_turn
+        ).pack(side=tk.LEFT, padx=5)
+
+        # 保存按钮
+        if self.mode == "new":
+            save_button_text = "💾 保存"
+        else:
+            save_button_text = "💾 保存修改"
+
+        ttk.Button(
+            button_container,
+            text=save_button_text,
+            command=self.save_changes
+        ).pack(side=tk.LEFT, padx=5)
+
+        # 取消按钮
+        ttk.Button(
+            button_container,
+            text="取消",
+            command=self.window.destroy
+        ).pack(side=tk.LEFT, padx=5)
+
+        # 轮次容器（移到按钮下方）
         self.turns_container = ttk.Frame(main_frame)
-        self.turns_container.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E))
+        self.turns_container.grid(row=7, column=0, columnspan=2, sticky=(tk.W, tk.E))
 
         # 存储轮次的UI组件
         self.turns_widgets = []
@@ -590,38 +620,6 @@ class TestDataDetailPopup:
 
         for i, turn in enumerate(turns):
             self._add_turn_ui(i, turn)
-
-        # 添加轮次按钮
-        add_turn_button = ttk.Button(
-            main_frame,
-            text="➕ 添加一轮对话",
-            command=self._add_new_turn
-        )
-        add_turn_button.grid(row=7, column=0, columnspan=2, pady=15)
-
-        # 按钮区域
-        button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=8, column=0, columnspan=2, pady=(30, 10), sticky=(tk.E))
-
-        # 保存按钮
-        if self.mode == "new":
-            button_text = "💾 保存"
-        else:
-            button_text = "💾 保存修改"
-
-        save_button = ttk.Button(
-            button_frame,
-            text=button_text,
-            command=self.save_changes
-        )
-        save_button.pack(side=tk.LEFT, padx=5)
-
-        # 取消按钮
-        ttk.Button(
-            button_frame,
-            text="取消",
-            command=self.window.destroy
-        ).pack(side=tk.LEFT, padx=5)
 
         # 初始化所有文本框的高度
         self.window.update_idletasks()

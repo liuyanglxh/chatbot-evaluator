@@ -839,7 +839,7 @@ class ResultPopupWindow:
     def _translate_reason(self, reason, score, threshold, passed):
         """翻译reason - 单独Tab"""
         import threading
-from font_utils import font_manager
+        from font_utils import font_manager
 
         def translate_thread():
             try:
@@ -902,7 +902,7 @@ from font_utils import font_manager
     def _translate_and_update_bilingual(self, reason, score, threshold, passed):
         """翻译并更新中英对照Tab"""
         import threading
-from font_utils import font_manager
+        from font_utils import font_manager
 
         def translate_thread():
             try:
