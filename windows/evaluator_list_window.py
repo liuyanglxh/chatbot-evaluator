@@ -613,13 +613,12 @@ class EvaluatorDetailPopup:
         metric_type_entry.config(state=tk.DISABLED)  # 类型不可修改
 
         # 对话模式（单轮/多轮）
-        ttk.Label(main_frame, text="对话模式:", font=font_manager.panel_font_bold()).grid(
-            row=4, column=0, sticky=tk.W, pady=10
-        )
+        self.turn_mode_label = ttk.Label(main_frame, text="对话模式:", font=font_manager.panel_font_bold())
+        self.turn_mode_label.grid(row=4, column=0, sticky=tk.W, pady=10)
 
         # 对话模式容器
-        turn_mode_frame = ttk.Frame(main_frame)
-        turn_mode_frame.grid(row=4, column=1, sticky=tk.W, pady=10)
+        self.turn_mode_frame = ttk.Frame(main_frame)
+        self.turn_mode_frame.grid(row=4, column=1, sticky=tk.W, pady=10)
 
         # 获取当前turn_mode，默认为single
         current_turn_mode = self.evaluator_data.get("turn_mode", "single")
@@ -627,18 +626,24 @@ class EvaluatorDetailPopup:
 
         # 单选按钮
         ttk.Radiobutton(
-            turn_mode_frame,
+            self.turn_mode_frame,
             text="单轮对话（每个测试数据单独评估）",
             variable=self.turn_mode_var,
             value="single"
         ).pack(anchor=tk.W)
 
         ttk.Radiobutton(
-            turn_mode_frame,
+            self.turn_mode_frame,
             text="多轮对话（评估完整的多轮对话）",
             variable=self.turn_mode_var,
             value="multi"
         ).pack(anchor=tk.W)
+
+        # 根据框架显示/隐藏对话模式选项
+        if framework != "custom":
+            # Ragas和DeepEval:隐藏对话模式选项
+            self.turn_mode_label.grid_remove()
+            self.turn_mode_frame.grid_remove()
 
         # 阈值（标签根据框架动态显示）
         if framework == "custom":
@@ -721,8 +726,8 @@ class EvaluatorDetailPopup:
             # 配置grid权重
             self.scoring_rules_frame.columnconfigure(0, weight=1)
 
-            # 显示评分规则框架（row=5）
-            self.scoring_rules_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
+            # 显示评分规则框架（row=6, 在阈值下面）
+            self.scoring_rules_frame.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
 
         elif self._needs_criteria(metric_type):
             # 显示criteria输入框
@@ -761,7 +766,7 @@ class EvaluatorDetailPopup:
             # 显示criteria框架（row=5）
             self.criteria_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
 
-        # 说明文本（固定在row=6）
+        # 说明文本 - 动态计算row位置
         info_text = self._get_info_text(framework, metric_type)
         info_label = ttk.Label(
             main_frame,
@@ -770,10 +775,18 @@ class EvaluatorDetailPopup:
             justify=tk.LEFT,
             foreground="gray"
         )
-        info_label.grid(row=6, column=0, columnspan=3, pady=(20, 10))
 
-        # 按钮区域（row=7）- 只在非自定义规则评分时显示
+        # 根据框架和类型决定说明文本的row位置
+        if framework == "custom" and metric_type == "规则评分":
+            # 自定义规则评分:评分规则框架在row=6,说明在row=7
+            info_label.grid(row=7, column=0, columnspan=3, pady=(20, 10))
+        else:
+            # 其他情况:说明在row=6
+            info_label.grid(row=6, column=0, columnspan=3, pady=(20, 10))
+
+        # 按钮区域 - 动态计算row位置
         if not (framework == "custom" and metric_type == "规则评分"):
+            # 非自定义规则评分:说明在row=6,按钮在row=7
             button_frame = ttk.Frame(main_frame)
             button_frame.grid(row=7, column=0, columnspan=3, pady=(30, 10), sticky=(tk.E))
 

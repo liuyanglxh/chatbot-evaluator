@@ -127,9 +127,6 @@ class ResultPopupWindow:
         # ========== 标题区域 ==========
         self._create_header(main_container)
 
-        # ========== 输入数据卡片 ==========
-        self._create_input_data_card(main_container)
-
         # 上部区域（状态、分数、评估器信息）
         top_section = tk.Frame(main_container, bg="#F7FAFC")
         top_section.pack(fill=tk.X, pady=(0, 15))
@@ -143,8 +140,11 @@ class ResultPopupWindow:
         # ========== 评估器信息卡片 ==========
         self._create_info_card(top_section)
 
-        # ========== 评估原因卡片（占据剩余空间）==========
+        # ========== 评估原因卡片（在输入数据上面）==========
         self._create_reason_card(main_container)
+
+        # ========== 输入数据卡片 ==========
+        self._create_input_data_card(main_container)
 
         # ========== 按钮区域 ==========
         self._create_buttons(main_container)
