@@ -47,6 +47,9 @@ class TestDataManagerWindow:
         # 居中显示
         self.center_window()
 
+        # 绑定ESC键关闭
+        bind_esc_key(self.window)
+
     def create_interface(self):
         """创建界面"""
         # 主容器 - 减少padding，让列表占据更多空间

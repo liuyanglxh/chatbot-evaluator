@@ -477,6 +477,9 @@ class EvaluatorDetailPopup:
         # 居中显示
         self.center_window()
 
+        # 在界面完全创建后再绑定ESC键
+        self.window.after(100, lambda: bind_esc_key(self.window))
+
     def create_scrollable_container(self):
         """创建可滚动容器"""
         # 创建主容器

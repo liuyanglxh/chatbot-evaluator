@@ -14,6 +14,10 @@ class EvaluatorGUI:
         self.root.title("LLM 评估工具")
         self.root.geometry("1000x700")
 
+        # 初始化全局ESC键处理器
+        from utils.window_helpers import initialize_global_esc_handler
+        initialize_global_esc_handler(root)
+
         # 窗口居中
         self.center_window()
 
