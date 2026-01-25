@@ -119,14 +119,22 @@ class ConfigManager:
         """获取所有评估器"""
         config = self.load_config()
 
-        # 迁移：为没有ID的评估器生成ID
+        # 迁移：为没有ID的评估器生成ID，为没有turn_mode的添加默认值
         evaluators = config.get("evaluators", [])
+        need_save = False
+
         for evaluator in evaluators:
             if "id" not in evaluator:
                 evaluator["id"] = str(uuid.uuid4())
+                need_save = True
+
+            if "turn_mode" not in evaluator:
+                evaluator["turn_mode"] = "single"  # 默认单轮
+                need_save = True
 
         # 如果有迁移，保存回文件
-        if any("id" not in e for e in config.get("evaluators", [])):
+        if need_save:
+            config["evaluators"] = evaluators
             self.save_config(config)
 
         return evaluators
@@ -170,15 +178,20 @@ class ConfigManager:
 
     def add_test_data(self, test_data):
         """
-        添加测试数据
+        添加测试数据（支持多轮对话）
 
         Args:
             test_data: 测试数据字典
                 {
                     'name': '测试数据名称',
-                    'question': '问题',
-                    'answer': '回答',
-                    'context': '参考资料（可选）'
+                    'group': '分组名称',  # 单个分组
+                    'turns': [  # 对话轮次数组
+                        {
+                            'question': '问题',
+                            'answer': '回答',
+                            'context': '参考资料（可选）'
+                        }
+                    ]
                 }
         """
         config = self.load_config()
@@ -195,21 +208,71 @@ class ConfigManager:
         self.save_config(config)
         return True
 
+    def _migrate_test_data_structure(self, test_data):
+        """
+        迁移旧的测试数据结构到新的多轮对话结构
+
+        旧结构: {name, question, answer, context, groups: []}
+        新结构: {name, group, turns: [{question, answer, context}]}
+
+        Returns:
+            迁移后的测试数据
+        """
+        # 如果已经有turns字段，说明已经是新结构
+        if "turns" in test_data:
+            # 确保groups字段转换为group（取第一个）
+            if "groups" in test_data and "group" not in test_data:
+                groups = test_data.pop("groups")
+                test_data["group"] = groups[0] if groups else ""
+            return test_data
+
+        # 旧结构迁移
+        if "question" in test_data:
+            # 提取旧的groups数组，取第一个作为group
+            old_groups = test_data.get("groups", [])
+            new_group = old_groups[0] if old_groups else ""
+
+            # 创建新的turns结构
+            new_test_data = {
+                "id": test_data.get("id", str(uuid.uuid4())),
+                "name": test_data.get("name", ""),
+                "group": new_group,
+                "turns": [
+                    {
+                        "question": test_data.get("question", ""),
+                        "answer": test_data.get("answer", ""),
+                        "context": test_data.get("context", "")
+                    }
+                ]
+            }
+            return new_test_data
+
+        return test_data
+
     def get_test_data_list(self):
-        """获取所有测试数据"""
+        """获取所有测试数据（自动迁移旧数据结构）"""
         config = self.load_config()
 
-        # 迁移：为没有ID的测试数据生成ID
+        # 获取原始测试数据
         test_data_list = config.get("test_data", [])
         need_save = False
 
-        for td in test_data_list:
+        # 处理每一条测试数据
+        for i, td in enumerate(test_data_list):
+            # 1. 为没有ID的测试数据生成ID
             if "id" not in td:
                 td["id"] = str(uuid.uuid4())
                 need_save = True
 
+            # 2. 迁移旧数据结构到新的多轮对话结构
+            migrated_td = self._migrate_test_data_structure(td)
+            if migrated_td != td:
+                test_data_list[i] = migrated_td
+                need_save = True
+
         # 如果有迁移，保存回文件
         if need_save:
+            config["test_data"] = test_data_list
             self.save_config(config)
 
         return test_data_list

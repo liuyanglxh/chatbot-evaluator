@@ -30,12 +30,24 @@ class ScoringRulesTable:
         # 创建表格主体（带边框）
         self._create_table_body()
 
-        # 创建添加按钮
+        # 创建添加按钮（但不自动布局，需要外部手动调用place_add_button）
         self._create_add_button()
 
         # 初始化2行
         self.add_row()
         self.add_row()
+
+    def place_add_button(self, parent_frame):
+        """
+        将添加按钮放置到指定的父容器中
+        由外部调用，灵活控制按钮位置
+
+        Args:
+            parent_frame: 要放置按钮的父容器
+        """
+        if hasattr(self, 'add_button_frame') and hasattr(self, 'add_button'):
+            self.add_button_frame.pack_forget()  # 先从原来的位置移除
+            self.add_button_frame.pack(in_=parent_frame, fill=tk.X, pady=(0, 10))
 
     def _create_header(self):
         """创建表头"""
@@ -88,17 +100,12 @@ class ScoringRulesTable:
         self.rows_frame.pack(fill=tk.BOTH, expand=True)
 
     def _create_add_button(self):
-        """创建添加按钮"""
-        add_button_frame = ttk.Frame(self.frame)
-        add_button_frame.pack(fill=tk.X, pady=(10, 0))
-
+        """创建添加按钮（不在默认位置显示，等待外部调用place_add_button）"""
         self.add_button = ttk.Button(
-            add_button_frame,
             text="+ 添加评分规则",
             command=self.add_row,
             width=20
         )
-        self.add_button.pack()
 
     def _calculate_text_height(self, text_widget, text_content):
         """

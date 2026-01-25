@@ -22,7 +22,7 @@ class AddEvaluatorWindow:
         # 创建新窗口
         self.window = tk.Toplevel(parent)
         self.window.title("添加评估器")
-        self.window.geometry("700x500")
+        self.window.geometry("700x550")  # 增加高度以容纳对话模式选项
         self.window.transient(parent)
         self.window.grab_set()
 
@@ -174,13 +174,38 @@ class AddEvaluatorWindow:
         # 初始为空，等待选择框架
         self.metric_combo['values'] = ["请先选择评估框架"]
 
+        # 对话模式（单轮/多轮）
+        ttk.Label(main_frame, text="对话模式:").grid(row=4, column=0, sticky=tk.W, pady=10)
+
+        # 对话模式容器
+        turn_mode_frame = ttk.Frame(main_frame)
+        turn_mode_frame.grid(row=4, column=1, sticky=tk.W, pady=10)
+
+        # 默认为single
+        self.turn_mode_var = tk.StringVar(value="single")
+
+        # 单选按钮
+        ttk.Radiobutton(
+            turn_mode_frame,
+            text="单轮对话（每个测试数据单独评估）",
+            variable=self.turn_mode_var,
+            value="single"
+        ).pack(anchor=tk.W)
+
+        ttk.Radiobutton(
+            turn_mode_frame,
+            text="多轮对话（评估完整的多轮对话）",
+            variable=self.turn_mode_var,
+            value="multi"
+        ).pack(anchor=tk.W)
+
         # 阈值设置
         self.threshold_label = ttk.Label(main_frame, text="阈值 (0-1):")
-        self.threshold_label.grid(row=4, column=0, sticky=tk.W, pady=10)
+        self.threshold_label.grid(row=5, column=0, sticky=tk.W, pady=10)
 
         self.threshold_var = tk.StringVar(value="0.5")
         self.threshold_entry = ttk.Entry(main_frame, textvariable=self.threshold_var, width=font_manager.get_entry_width(50))
-        self.threshold_entry.grid(row=4, column=1, sticky=(tk.W, tk.E), pady=10)
+        self.threshold_entry.grid(row=5, column=1, sticky=(tk.W, tk.E), pady=10)
 
         # 评估标准（Prompt）输入区域 - 初始隐藏
         self.criteria_frame = ttk.Frame(main_frame)
@@ -210,50 +235,181 @@ class AddEvaluatorWindow:
         self.scoring_rules_frame = ttk.Frame(main_frame)
         # 不grid，等需要时再显示
 
-        ttk.Label(self.scoring_rules_frame, text="评分规则:").grid(row=0, column=0, sticky=tk.NW, pady=10)
+        # 创建动态内容容器（用于放置按钮、表格、说明文本等）
+        self.dynamic_content_frame = ttk.Frame(main_frame)
+        self.dynamic_content_frame.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E))
 
-        # 创建评分规则表格组件
-        self.scoring_rules_table = ScoringRulesTable(self.scoring_rules_frame)
-        self.scoring_rules_table.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        # 配置网格权重（main_frame的列）
+        main_frame.columnconfigure(1, weight=1)
 
-        # 配置grid权重
-        self.scoring_rules_frame.columnconfigure(0, weight=1)
+        # 初始渲染下方内容
+        self._render_lower_section()
 
-        # 说明文本（初始在row=6，会动态调整）
-        self.info_label = ttk.Label(
-            main_frame,
-            text="",
+    def _render_lower_section(self):
+        """完全重新渲染下方内容（解决切换框架时的残留问题）"""
+        framework = self.framework_var.get()
+        metric_type = self.metric_type_var.get()
+
+        # 1. 隐藏所有特殊输入框
+        self.criteria_frame.grid_forget()
+        self.scoring_rules_frame.grid_forget()
+
+        # 2. 清空动态内容容器
+        for widget in self.dynamic_content_frame.winfo_children():
+            widget.destroy()
+
+        current_row = 0
+
+        # 3. 根据框架和类型决定显示什么
+        if framework == "custom" and metric_type == "规则评分":
+            # 修改阈值标签文本（去掉"0-1"）
+            self.threshold_label.config(text="阈值:")
+
+            # 显示评分规则标签
+            ttk.Label(
+                self.dynamic_content_frame,
+                text="评分规则:",
+                font=font_manager.panel_font_bold()
+            ).grid(row=current_row, column=0, sticky=tk.W, pady=(0, 10))
+            current_row += 1
+
+            # 按钮行
+            button_frame = ttk.Frame(self.dynamic_content_frame)
+            button_frame.grid(row=current_row, column=0, sticky=tk.W, pady=(0, 10))
+            current_row += 1
+
+            # 创建评分规则表格组件（直接在dynamic_content_frame中创建）
+            from windows.scoring_rules_table import ScoringRulesTable
+            self.scoring_rules_table = ScoringRulesTable(self.dynamic_content_frame)
+
+            # 将ScoringRulesTable的frame放到正确的位置
+            self.scoring_rules_table.frame.grid(
+                row=current_row, column=0, sticky=(tk.W, tk.E), pady=(0, 10)
+            )
+            current_row += 1
+
+            # 创建新的"+ 添加评分规则"按钮（使用ScoringRulesTable的add_row方法）
+            add_rule_button = ttk.Button(
+                button_frame,
+                text="+ 添加评分规则",
+                command=self.scoring_rules_table.add_row,
+                width=20
+            )
+            add_rule_button.pack(side=tk.LEFT, padx=5)
+
+            # "添加"和"取消"按钮
+            add_button = ttk.Button(
+                button_frame,
+                text="添加",
+                command=self.add_evaluator,
+                width=15
+            )
+            add_button.pack(side=tk.LEFT, padx=5)
+
+            cancel_button = ttk.Button(
+                button_frame,
+                text="取消",
+                command=self.window.destroy,
+                width=15
+            )
+            cancel_button.pack(side=tk.LEFT, padx=5)
+
+            # 说明文本
+            info_text = """说明：
+1. 选择评估框架为"自定义"
+2. 填写评分规则（至少2条）
+3. 分数不能重复（0-1之间的浮点数）
+4. 每条规则包含分数和对应的评分标准
+5. 系统将根据规则自动生成评估Prompt"""
+
+        elif self._needs_criteria(metric_type):
+            # 恢复阈值标签文本
+            self.threshold_label.config(text="阈值 (0-1):")
+
+            # 显示criteria
+            self.criteria_frame.grid(in_=self.dynamic_content_frame, row=current_row, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+            current_row += 1
+
+            # 按钮行
+            button_frame = ttk.Frame(self.dynamic_content_frame)
+            button_frame.grid(row=current_row, column=0, sticky=tk.W, pady=(0, 10))
+            current_row += 1
+
+            # "添加"和"取消"按钮
+            add_button = ttk.Button(
+                button_frame,
+                text="添加",
+                command=self.add_evaluator,
+                width=15
+            )
+            add_button.pack(side=tk.LEFT, padx=5)
+
+            cancel_button = ttk.Button(
+                button_frame,
+                text="取消",
+                command=self.window.destroy,
+                width=15
+            )
+            cancel_button.pack(side=tk.LEFT, padx=5)
+
+            # 预填充默认prompt（如果有的话）
+            default_criteria = self._get_default_criteria(metric_type)
+            if default_criteria and not self.criteria_text.get(1.0, tk.END).strip():
+                self.criteria_text.insert(1.0, default_criteria)
+
+            # 说明文本
+            info_text = """说明：
+1. 选择评估框架（Ragas 或 DeepEval）
+2. 根据框架选择对应的评估器类型
+3. 设置评估器的阈值（0-1之间）
+4. 填写评估标准，定义评估规则
+5. 评估器将保存到配置文件中"""
+
+        else:
+            # 恢复阈值标签文本
+            self.threshold_label.config(text="阈值 (0-1):")
+
+            # 按钮行
+            button_frame = ttk.Frame(self.dynamic_content_frame)
+            button_frame.grid(row=current_row, column=0, sticky=tk.W, pady=(0, 10))
+            current_row += 1
+
+            # "添加"和"取消"按钮
+            add_button = ttk.Button(
+                button_frame,
+                text="添加",
+                command=self.add_evaluator,
+                width=15
+            )
+            add_button.pack(side=tk.LEFT, padx=5)
+
+            cancel_button = ttk.Button(
+                button_frame,
+                text="取消",
+                command=self.window.destroy,
+                width=15
+            )
+            cancel_button.pack(side=tk.LEFT, padx=5)
+
+            # 说明文本
+            info_text = """说明：
+1. 选择评估框架（Ragas 或 DeepEval）
+2. 根据框架选择对应的评估器类型
+3. 设置评估器的阈值（0-1之间）
+4. 评估器将保存到配置文件中"""
+
+        # 说明文本（始终在最后）
+        info_label = ttk.Label(
+            self.dynamic_content_frame,
+            text=info_text,
             font=font_manager.panel_font(),
             justify=tk.LEFT,
             foreground="gray"
         )
-        self._update_info_text()
-        self.info_label.grid(row=6, column=0, columnspan=2, pady=(20, 10))
+        info_label.grid(row=current_row, column=0, sticky=tk.W, pady=(20, 0))
 
-        # 按钮框架（初始row=7，会动态调整）
-        self.button_frame = ttk.Frame(main_frame)
-        self.button_frame.grid(row=7, column=0, columnspan=2, pady=(30, 0))
-
-        # 添加按钮
-        add_button = ttk.Button(
-            self.button_frame,
-            text="添加",
-            command=self.add_evaluator,
-            width=15
-        )
-        add_button.grid(row=0, column=0, padx=5)
-
-        # 取消按钮
-        cancel_button = ttk.Button(
-            self.button_frame,
-            text="取消",
-            command=self.window.destroy,
-            width=15
-        )
-        cancel_button.grid(row=0, column=1, padx=5)
-
-        # 配置网格权重（main_frame的列）
-        main_frame.columnconfigure(1, weight=1)
+        # 调整窗口大小
+        self.window.update_idletasks()
 
     def on_framework_change(self):
         """框架选择改变时的回调"""
@@ -287,14 +443,15 @@ class AddEvaluatorWindow:
             # 自定义框架只有一个类型，自动选中
             self.metric_combo['values'] = ["规则评分"]
             self.metric_type_var.set("规则评分")
-            # 触发选择事件，显示评分规则表格
-            self.on_metric_type_change(None)
         else:
             self.metric_combo['values'] = ["请先选择评估框架"]
 
         # 清空当前选择（只有非custom框架才清空）
         if framework != "custom":
             self.metric_type_var.set("")
+
+        # 重新渲染下方内容
+        self._render_lower_section()
 
     def add_evaluator(self):
         """添加评估器"""
@@ -342,7 +499,8 @@ class AddEvaluatorWindow:
             "name": name,
             "framework": framework,
             "metric_type": metric_type,
-            "threshold": threshold_float
+            "threshold": threshold_float,
+            "turn_mode": self.turn_mode_var.get()  # 添加对话模式
         }
 
         # 如果是自定义框架，获取评分规则
@@ -388,84 +546,8 @@ class AddEvaluatorWindow:
 
     def on_metric_type_change(self, event):
         """评估器类型选择改变时的回调"""
-        metric_type = self.metric_type_var.get()
-        framework = self.framework_var.get()
-
-        # 隐藏所有特殊输入框
-        self.criteria_frame.grid_forget()
-        self.scoring_rules_frame.grid_forget()
-
-        if framework == "custom" and metric_type == "规则评分":
-            # 修改阈值标签文本（去掉"0-1"）
-            self.threshold_label.config(text="阈值:")
-
-            # 显示评分规则表格（row=5）
-            self.scoring_rules_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
-
-            # 更新说明文本内容（移到row=6）
-            self.info_label.grid(row=6, column=0, columnspan=2, pady=(10, 10))
-            self._update_info_text(has_scoring_rules=True)
-
-            # 按钮框架移到row=7
-            self.button_frame.grid(row=7, column=0, columnspan=2, pady=(30, 0))
-
-        # 判断是否需要显示criteria输入框（DeepEval/Ragas）
-        elif self._needs_criteria(metric_type):
-            # 恢复阈值标签文本
-            self.threshold_label.config(text="阈值 (0-1):")
-
-            # 显示criteria输入框（row=5）
-            self.criteria_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
-
-            # 更新说明文本内容（移到row=6）
-            self.info_label.grid(row=6, column=0, columnspan=2, pady=(10, 10))
-            self._update_info_text(has_criteria=True)
-
-            # 按钮框架移到row=7
-            self.button_frame.grid(row=7, column=0, columnspan=2, pady=(30, 0))
-
-            # 预填充默认prompt（如果有的话）
-            default_criteria = self._get_default_criteria(metric_type)
-            if default_criteria and not self.criteria_text.get(1.0, tk.END).strip():
-                self.criteria_text.insert(1.0, default_criteria)
-        else:
-            # 恢复阈值标签文本
-            self.threshold_label.config(text="阈值 (0-1):")
-
-            # 更新说明文本内容（保持在row=6）
-            self.info_label.grid(row=6, column=0, columnspan=2, pady=(20, 10))
-            self._update_info_text(has_criteria=False, has_scoring_rules=False)
-
-            # 按钮框架保持在row=7
-            self.button_frame.grid(row=7, column=0, columnspan=2, pady=(30, 0))
-
-        # 调整窗口大小
-        self.window.update_idletasks()
-
-    def _update_info_text(self, has_criteria=False, has_scoring_rules=False):
-        """动态更新说明文本"""
-        if has_scoring_rules:
-            info_text = """说明：
-1. 选择评估框架为"自定义"
-2. 填写评分规则（至少2条）
-3. 分数不能重复（0-1之间的浮点数）
-4. 每条规则包含分数和对应的评分标准
-5. 系统将根据规则自动生成评估Prompt"""
-        elif has_criteria:
-            info_text = """说明：
-1. 选择评估框架（Ragas 或 DeepEval）
-2. 根据框架选择对应的评估器类型
-3. 设置评估器的阈值（0-1之间）
-4. 填写评估标准，定义评估规则
-5. 评估器将保存到配置文件中"""
-        else:
-            info_text = """说明：
-1. 选择评估框架（Ragas 或 DeepEval）
-2. 根据框架选择对应的评估器类型
-3. 设置评估器的阈值（0-1之间）
-4. 评估器将保存到配置文件中"""
-
-        self.info_label.config(text=info_text)
+        # 重新渲染下方内容
+        self._render_lower_section()
 
     def _needs_criteria(self, metric_type: str) -> bool:
         """判断是否需要自定义criteria"""

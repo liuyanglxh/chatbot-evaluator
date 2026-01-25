@@ -104,11 +104,12 @@ class TestDataManagerWindow:
             command=self.add_new_test_data
         ).pack(side=tk.LEFT, padx=(0, 5))
 
-        ttk.Button(
+        self.select_all_btn = ttk.Button(
             controls_frame,
             text="☑ 全选",
             command=self.toggle_select_all
-        ).pack(side=tk.LEFT, padx=(0, 5))
+        )
+        self.select_all_btn.pack(side=tk.LEFT, padx=(0, 5))
 
         ttk.Button(
             controls_frame,
@@ -165,7 +166,7 @@ class TestDataManagerWindow:
         self.tree.bind("<Double-Button-1>", self._on_double_click)
 
     def load_test_data(self):
-        """加载测试数据"""
+        """加载测试数据（支持新的多轮对话结构）"""
         # 清空列表和复选框状态
         for item in self.tree.get_children():
             self.tree.delete(item)
@@ -182,18 +183,30 @@ class TestDataManagerWindow:
         for td in test_data_list:
             # 如果选择了特定分组，只显示该分组的测试数据
             if selected_group != "全部":
-                test_data_groups = td.get('groups', [])
-                if selected_group not in test_data_groups:
+                test_data_group = td.get('group', '')
+                if selected_group != test_data_group:
                     continue
 
-            # 截取问题显示
-            question = td.get('question', '')
-            if len(question) > 50:
-                question = question[:50] + "..."
+            # 获取第一轮问题作为摘要
+            turns = td.get('turns', [])
+            if turns:
+                first_question = turns[0].get('question', '')
+                if len(first_question) > 50:
+                    first_question = first_question[:50] + "..."
+
+                # 如果有多轮，显示轮次数
+                turns_count = len(turns)
+                if turns_count > 1:
+                    display_name = f"{td['name']} ({turns_count}轮)"
+                else:
+                    display_name = td['name']
+            else:
+                first_question = "(无数据)"
+                display_name = td['name']
 
             # 创建复选框变量
             var = tk.BooleanVar(value=False)
-            item_id = self.tree.insert("", tk.END, values=("☐", td['name'], question))
+            item_id = self.tree.insert("", tk.END, values=("☐", display_name, first_question))
             self.checkbox_vars[item_id] = var
 
             # 存储 ID 映射
@@ -492,7 +505,7 @@ class TestDataDetailPopup:
             self.canvas.yview_scroll(-1, "units")
 
     def create_interface(self):
-        """创建界面"""
+        """创建界面（支持多轮对话）"""
         # 动态计算padding，根据字体大小调整
         font_size = font_manager.get_panel_font_size()
         padding = max(20, int(font_size * 1.5))  # 字体越大，padding越大
@@ -522,6 +535,7 @@ class TestDataDetailPopup:
         main_frame.columnconfigure(0, weight=0)
         main_frame.columnconfigure(1, weight=1)
 
+        # ========== 基本信息 ==========
         # 名称
         ttk.Label(main_frame, text="名称:", font=font_manager.panel_font_bold()).grid(
             row=2, column=0, sticky=tk.W, pady=10)
@@ -529,69 +543,65 @@ class TestDataDetailPopup:
         name_entry = ttk.Entry(main_frame, textvariable=self.name_var, width=font_manager.get_entry_width(60), font=font_manager.panel_font())
         name_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=10)
 
-        # 问题
-        ttk.Label(main_frame, text="问题:", font=font_manager.panel_font_bold()).grid(
-            row=3, column=0, sticky=tk.NW, pady=10)
-        self.question_text = tk.Text(main_frame, width=font_manager.get_entry_width(60), height=2, font=font_manager.panel_font(),
-                                   wrap=tk.WORD, relief=tk.RIDGE, padx=5, pady=5)
-        self.question_text.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=10)
-        self.question_text.insert(1.0, self.test_data.get('question', ''))
-        # 绑定动态高度调整
-        self.question_text.bind("<KeyRelease>", lambda e: self._adjust_text_height(self.question_text))
-
-        # 回答
-        ttk.Label(main_frame, text="回答:", font=font_manager.panel_font_bold()).grid(
-            row=4, column=0, sticky=tk.NW, pady=10)
-        self.answer_text = tk.Text(main_frame, width=font_manager.get_entry_width(60), height=2, font=font_manager.panel_font(),
-                                 wrap=tk.WORD, relief=tk.RIDGE, padx=5, pady=5)
-        self.answer_text.grid(row=4, column=1, sticky=(tk.W, tk.E), pady=10)
-        self.answer_text.insert(1.0, self.test_data.get('answer', ''))
-        # 绑定动态高度调整
-        self.answer_text.bind("<KeyRelease>", lambda e: self._adjust_text_height(self.answer_text))
-
-        # 参考资料
-        ttk.Label(main_frame, text="参考资料（可选）:", font=font_manager.panel_font_bold()).grid(
-            row=5, column=0, sticky=tk.NW, pady=10)
-        self.context_text = tk.Text(main_frame, width=font_manager.get_entry_width(60), height=2, font=font_manager.panel_font(),
-                                  wrap=tk.WORD, relief=tk.RIDGE, padx=5, pady=5)
-        self.context_text.grid(row=5, column=1, sticky=(tk.W, tk.E), pady=10)
-        self.context_text.insert(1.0, self.test_data.get('context', ''))
-
-        # 绑定动态高度调整
-        self.context_text.bind("<KeyRelease>", lambda e: self._adjust_text_height(self.context_text))
-
-        # 分组选择
+        # 分组选择（改为下拉框，单个分组）
         ttk.Label(main_frame, text="分组:", font=font_manager.panel_font_bold()).grid(
-            row=6, column=0, sticky=tk.NW, pady=10)
-
-        # 分组选择容器 - 使用列表形式，不限制高度
-        groups_frame = ttk.Frame(main_frame)
-        groups_frame.grid(row=6, column=1, sticky=(tk.W, tk.E), pady=10)
+            row=3, column=0, sticky=tk.W, pady=10)
 
         # 获取所有分组
         test_groups = self.config_manager.get_test_groups()
-        self.group_vars = {}
+        group_options = [g["name"] for g in test_groups]
 
-        # 为每个分组创建复选框
-        for i, group in enumerate(test_groups):
-            var = tk.BooleanVar()
-            # 如果测试数据已包含该分组，则选中
-            if group["name"] in self.test_data.get("groups", []):
-                var.set(True)
+        # 提取当前分组
+        current_group = self.test_data.get('group', '')
+        self.group_var = tk.StringVar(value=current_group)
 
-            self.group_vars[group["name"]] = var
+        group_combo = ttk.Combobox(
+            main_frame,
+            textvariable=self.group_var,
+            values=group_options,
+            width=font_manager.get_entry_width(20),
+            font=font_manager.panel_font(),
+            state="readonly"
+        )
+        group_combo.grid(row=3, column=1, sticky=tk.W, pady=10)
 
-            chk = ttk.Checkbutton(
-                groups_frame,
-                text=group["name"],
-                variable=var
-            )
-            # 单列布局，垂直排列
-            chk.grid(row=i, column=0, sticky=tk.W, padx=5, pady=2)
+        # ========== 多轮对话区域 ==========
+        ttk.Separator(main_frame, orient=tk.HORIZONTAL).grid(
+            row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=20)
+
+        ttk.Label(
+            main_frame,
+            text="💬 对话轮次",
+            font=font_manager.panel_title_font()
+        ).grid(row=5, column=0, columnspan=2, pady=(0, 10))
+
+        # 轮次容器
+        self.turns_container = ttk.Frame(main_frame)
+        self.turns_container.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E))
+
+        # 存储轮次的UI组件
+        self.turns_widgets = []
+
+        # 加载现有的轮次数据
+        turns = self.test_data.get('turns', [])
+        if not turns:
+            # 如果没有轮次，创建一个空轮次
+            turns = [{'question': '', 'answer': '', 'context': ''}]
+
+        for i, turn in enumerate(turns):
+            self._add_turn_ui(i, turn)
+
+        # 添加轮次按钮
+        add_turn_button = ttk.Button(
+            main_frame,
+            text="➕ 添加一轮对话",
+            command=self._add_new_turn
+        )
+        add_turn_button.grid(row=7, column=0, columnspan=2, pady=15)
 
         # 按钮区域
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=7, column=0, columnspan=2, pady=(30, 10), sticky=(tk.E))
+        button_frame.grid(row=8, column=0, columnspan=2, pady=(30, 10), sticky=(tk.E))
 
         # 保存按钮
         if self.mode == "new":
@@ -607,58 +617,203 @@ class TestDataDetailPopup:
         save_button.pack(side=tk.LEFT, padx=5)
 
         # 取消按钮
-        cancel_button = ttk.Button(
+        ttk.Button(
             button_frame,
-            text="✖ 取消",
+            text="取消",
             command=self.window.destroy
-        )
-        cancel_button.pack(side=tk.LEFT, padx=5)
+        ).pack(side=tk.LEFT, padx=5)
 
-        # 配置网格权重
-        main_frame.columnconfigure(1, weight=1)
-
-        # 初始调整Text组件高度，根据内容自适应
+        # 初始化所有文本框的高度
         self.window.update_idletasks()
-        self._adjust_text_height(self.question_text)
-        self._adjust_text_height(self.answer_text)
-        self._adjust_text_height(self.context_text)
+        for turn_widget in self.turns_widgets:
+            self._adjust_text_height(turn_widget['question'])
+            self._adjust_text_height(turn_widget['answer'])
+            self._adjust_text_height(turn_widget['context'])
+
+    def _add_turn_ui(self, turn_index, turn_data=None):
+        """
+        添加一轮对话的UI
+
+        Args:
+            turn_index: 轮次索引
+            turn_data: 轮次数据 {question, answer, context}
+        """
+        if turn_data is None:
+            turn_data = {'question': '', 'answer': '', 'context': ''}
+
+        # 轮次框架（带边框）
+        turn_frame = ttk.LabelFrame(
+            self.turns_container,
+            text=f"第 {turn_index + 1} 轮",
+            padding="10"
+        )
+        turn_frame.grid(row=turn_index, column=0, sticky=(tk.W, tk.E), pady=10)
+
+        # 问题
+        ttk.Label(turn_frame, text="问题:", font=font_manager.panel_font_bold()).grid(
+            row=0, column=0, sticky=tk.NW, pady=5)
+        question_text = tk.Text(
+            turn_frame,
+            width=font_manager.get_entry_width(60),
+            height=1,  # 初始高度为1，会动态调整
+            font=font_manager.panel_font(),
+            wrap=tk.WORD,
+            relief=tk.RIDGE,
+            padx=5,
+            pady=5
+        )
+        question_text.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=5)
+        question_text.insert(1.0, turn_data.get('question', ''))
+        # 绑定动态高度调整
+        question_text.bind("<KeyRelease>", lambda e: self._adjust_text_height(question_text))
+
+        # 回答
+        ttk.Label(turn_frame, text="回答:", font=font_manager.panel_font_bold()).grid(
+            row=2, column=0, sticky=tk.NW, pady=5)
+        answer_text = tk.Text(
+            turn_frame,
+            width=font_manager.get_entry_width(60),
+            height=1,  # 初始高度为1，会动态调整
+            font=font_manager.panel_font(),
+            wrap=tk.WORD,
+            relief=tk.RIDGE,
+            padx=5,
+            pady=5
+        )
+        answer_text.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=5)
+        answer_text.insert(1.0, turn_data.get('answer', ''))
+        # 绑定动态高度调整
+        answer_text.bind("<KeyRelease>", lambda e: self._adjust_text_height(answer_text))
+
+        # 参考资料
+        ttk.Label(turn_frame, text="参考资料（可选）:", font=font_manager.panel_font_bold()).grid(
+            row=4, column=0, sticky=tk.NW, pady=5)
+        context_text = tk.Text(
+            turn_frame,
+            width=font_manager.get_entry_width(60),
+            height=1,  # 初始高度为1，会动态调整
+            font=font_manager.panel_font(),
+            wrap=tk.WORD,
+            relief=tk.RIDGE,
+            padx=5,
+            pady=5
+        )
+        context_text.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=5)
+        context_text.insert(1.0, turn_data.get('context', ''))
+        # 绑定动态高度调整
+        context_text.bind("<KeyRelease>", lambda e: self._adjust_text_height(context_text))
+
+        # 删除按钮（所有轮次都有，但只有一轮时禁用）
+        delete_button = ttk.Button(
+            turn_frame,
+            text="🗑 删除此轮",
+            command=lambda: self._remove_turn(turn_index),
+            state=tk.NORMAL if len(self.turns_widgets) > 1 else tk.DISABLED
+        )
+        delete_button.grid(row=6, column=0, sticky=tk.E, pady=5)
+
+        # 存储这轮的UI组件
+        self.turns_widgets.append({
+            'frame': turn_frame,
+            'question': question_text,
+            'answer': answer_text,
+            'context': context_text,
+            'delete_button': delete_button
+        })
+
+    def _add_new_turn(self):
+        """添加新的空轮次"""
+        turn_index = len(self.turns_widgets)
+        self._add_turn_ui(turn_index, {'question': '', 'answer': '', 'context': ''})
+
+        # 更新所有删除按钮状态（现在有超过一轮了）
+        self._update_delete_buttons_state()
+
+        # 初始化新添加的文本框高度
+        self.window.update_idletasks()
+        new_turn_widget = self.turns_widgets[-1]
+        self._adjust_text_height(new_turn_widget['question'])
+        self._adjust_text_height(new_turn_widget['answer'])
+        self._adjust_text_height(new_turn_widget['context'])
+
+    def _remove_turn(self, turn_index):
+        """删除指定轮次"""
+        # 至少保留一轮
+        if len(self.turns_widgets) <= 1:
+            messagebox.showwarning("警告", "至少需要保留一轮对话")
+            return
+
+        # 删除UI组件
+        turn_widgets = self.turns_widgets[turn_index]
+        turn_widgets['frame'].destroy()
+
+        # 从列表中移除
+        self.turns_widgets.pop(turn_index)
+
+        # 重新编号后续轮次
+        for i in range(turn_index, len(self.turns_widgets)):
+            self.turns_widgets[i]['frame'].configure(text=f"第 {i + 1} 轮")
+            # 更新删除按钮的回调
+            self.turns_widgets[i]['delete_button'].configure(
+                command=lambda idx=i: self._remove_turn(idx)
+            )
+
+        # 更新所有删除按钮状态
+        self._update_delete_buttons_state()
+
+    def _update_delete_buttons_state(self):
+        """更新所有删除按钮的状态"""
+        # 如果只有一轮，禁用所有删除按钮
+        state = tk.NORMAL if len(self.turns_widgets) > 1 else tk.DISABLED
+
+        for turn_widget in self.turns_widgets:
+            if turn_widget['delete_button']:
+                turn_widget['delete_button'].configure(state=state)
 
     def save_changes(self):
-        """保存修改或新增"""
+        """保存修改或新增（支持多轮对话）"""
         try:
-            # 获取新的值
+            # 获取基本信息
             new_name = self.name_var.get().strip()
-            new_question = self.question_text.get(1.0, tk.END).strip()
-            new_answer = self.answer_text.get(1.0, tk.END).strip()
-            new_context = self.context_text.get(1.0, tk.END).strip()
+            new_group = self.group_var.get().strip()
 
-            # 验证
+            # 验证名称
             if not new_name:
                 messagebox.showerror("错误", "名称不能为空")
                 return
 
-            if not new_question:
-                messagebox.showerror("错误", "问题不能为空")
-                return
+            # 收集所有轮次的数据
+            turns = []
+            for turn_widget in self.turns_widgets:
+                question = turn_widget['question'].get(1.0, tk.END).strip()
+                answer = turn_widget['answer'].get(1.0, tk.END).strip()
+                context = turn_widget['context'].get(1.0, tk.END).strip()
 
-            if not new_answer:
-                messagebox.showerror("错误", "回答不能为空")
-                return
+                # 验证每轮的问题和回答
+                if not question:
+                    messagebox.showerror("错误", "每轮对话的问题不能为空")
+                    return
+                if not answer:
+                    messagebox.showerror("错误", "每轮对话的回答不能为空")
+                    return
 
-            # 获取选中的分组
-            selected_groups = []
-            for group_name, var in self.group_vars.items():
-                if var.get():
-                    selected_groups.append(group_name)
+                turns.append({
+                    'question': question,
+                    'answer': answer,
+                    'context': context
+                })
+
+            # 验证至少有一轮
+            if not turns:
+                messagebox.showerror("错误", "至少需要一轮对话")
+                return
 
             if self.mode == "new":
                 # 新增模式：创建新测试数据
                 new_data = {
                     "name": new_name,
-                    "question": new_question,
-                    "answer": new_answer,
-                    "context": new_context,
-                    "groups": selected_groups
+                    "group": new_group,
+                    "turns": turns
                 }
 
                 self.config_manager.add_test_data(new_data)
@@ -680,10 +835,8 @@ class TestDataDetailPopup:
                 updated_data = {
                     "id": self.test_data_id,  # 保留原有ID
                     "name": new_name,
-                    "question": new_question,
-                    "answer": new_answer,
-                    "context": new_context,
-                    "groups": selected_groups
+                    "group": new_group,
+                    "turns": turns
                 }
 
                 success = self.config_manager.update_test_data(self.test_data_id, updated_data)
@@ -706,13 +859,16 @@ class TestDataDetailPopup:
     def _clear_form(self):
         """清空表单（用于新增模式下的连续添加）"""
         self.name_var.set('')
-        self.question_text.delete(1.0, tk.END)
-        self.answer_text.delete(1.0, tk.END)
-        self.context_text.delete(1.0, tk.END)
+        self.group_var.set('')
 
-        # 清空分组选择
-        for var in self.group_vars.values():
-            var.set(False)
+        # 清空所有轮次
+        for turn_widget in self.turns_widgets:
+            turn_widget['frame'].destroy()
+
+        self.turns_widgets.clear()
+
+        # 添加一个空轮次
+        self._add_turn_ui(0, {'question': '', 'answer': '', 'context': ''})
 
     def _adjust_text_height(self, text_widget):
         """动态调整Text组件高度（基于视觉行数，包括自动换行）"""

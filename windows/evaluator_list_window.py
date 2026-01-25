@@ -454,9 +454,9 @@ class EvaluatorDetailPopup:
 
         # 动态计算窗口大小，根据字体大小调整
         font_size = font_manager.get_panel_font_size()
-        # 基础大小 700x650，字体每增加1号，宽度和高度增加
+        # 基础大小 700x700，字体每增加1号，宽度和高度增加（增加了对话模式选项，需要更多空间）
         base_width = 700
-        base_height = 650
+        base_height = 700
         scale_factor = (font_size - 11) * 0.08  # 11号是基准
         window_width = int(base_width * (1 + max(0, scale_factor)))
         window_height = int(base_height * (1 + max(0, scale_factor)))
@@ -612,6 +612,34 @@ class EvaluatorDetailPopup:
         metric_type_entry.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=10)
         metric_type_entry.config(state=tk.DISABLED)  # 类型不可修改
 
+        # 对话模式（单轮/多轮）
+        ttk.Label(main_frame, text="对话模式:", font=font_manager.panel_font_bold()).grid(
+            row=4, column=0, sticky=tk.W, pady=10
+        )
+
+        # 对话模式容器
+        turn_mode_frame = ttk.Frame(main_frame)
+        turn_mode_frame.grid(row=4, column=1, sticky=tk.W, pady=10)
+
+        # 获取当前turn_mode，默认为single
+        current_turn_mode = self.evaluator_data.get("turn_mode", "single")
+        self.turn_mode_var = tk.StringVar(value=current_turn_mode)
+
+        # 单选按钮
+        ttk.Radiobutton(
+            turn_mode_frame,
+            text="单轮对话（每个测试数据单独评估）",
+            variable=self.turn_mode_var,
+            value="single"
+        ).pack(anchor=tk.W)
+
+        ttk.Radiobutton(
+            turn_mode_frame,
+            text="多轮对话（评估完整的多轮对话）",
+            variable=self.turn_mode_var,
+            value="multi"
+        ).pack(anchor=tk.W)
+
         # 阈值（标签根据框架动态显示）
         if framework == "custom":
             threshold_label_text = "阈值:"
@@ -619,11 +647,11 @@ class EvaluatorDetailPopup:
             threshold_label_text = "阈值 (0-1):"
 
         ttk.Label(main_frame, text=threshold_label_text, font=font_manager.panel_font_bold()).grid(
-            row=4, column=0, sticky=tk.W, pady=10
+            row=5, column=0, sticky=tk.W, pady=10
         )
         self.threshold_var = tk.StringVar(value=str(self.evaluator_data.get("threshold", "")))
         threshold_entry = ttk.Entry(main_frame, textvariable=self.threshold_var, width=font_manager.get_entry_width(50), font=font_manager.panel_font())
-        threshold_entry.grid(row=4, column=1, sticky=(tk.W, tk.E), pady=10)
+        threshold_entry.grid(row=5, column=1, sticky=(tk.W, tk.E), pady=10)
 
         # 评估标准（如果有需要）
         self.criteria_text = None
@@ -639,8 +667,36 @@ class EvaluatorDetailPopup:
                 row=0, column=0, sticky=tk.NW, pady=10
             )
 
+            # 按钮行（放在评分规则标签下面）
+            button_frame = ttk.Frame(self.scoring_rules_frame)
+            button_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+
             # 创建评分规则表格组件
             self.scoring_rules_table = ScoringRulesTable(self.scoring_rules_frame)
+
+            # "+ 添加评分规则"按钮（直接创建新的按钮）
+            add_rule_button = ttk.Button(
+                button_frame,
+                text="+ 添加评分规则",
+                command=self.scoring_rules_table.add_row,
+                width=20
+            )
+            add_rule_button.pack(side=tk.LEFT, padx=5)
+
+            # "保存修改"和"取消"按钮
+            save_button = ttk.Button(
+                button_frame,
+                text="💾 保存修改",
+                command=self.save_changes
+            )
+            save_button.pack(side=tk.LEFT, padx=5)
+
+            cancel_button = ttk.Button(
+                button_frame,
+                text="✖ 取消",
+                command=self.window.destroy
+            )
+            cancel_button.pack(side=tk.LEFT, padx=5)
 
             # 加载现有规则
             scoring_rules = self.evaluator_data.get("scoring_rules", [])
@@ -660,7 +716,7 @@ class EvaluatorDetailPopup:
                 # 如果没有规则，保持默认的2个空行
                 pass
 
-            self.scoring_rules_table.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+            self.scoring_rules_table.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
             # 配置grid权重
             self.scoring_rules_frame.columnconfigure(0, weight=1)
@@ -716,25 +772,26 @@ class EvaluatorDetailPopup:
         )
         info_label.grid(row=6, column=0, columnspan=3, pady=(20, 10))
 
-        # 按钮区域（row=7）
-        button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=7, column=0, columnspan=3, pady=(30, 10), sticky=(tk.E))
+        # 按钮区域（row=7）- 只在非自定义规则评分时显示
+        if not (framework == "custom" and metric_type == "规则评分"):
+            button_frame = ttk.Frame(main_frame)
+            button_frame.grid(row=7, column=0, columnspan=3, pady=(30, 10), sticky=(tk.E))
 
-        # 保存按钮
-        save_button = ttk.Button(
-            button_frame,
-            text="💾 保存修改",
-            command=self.save_changes
-        )
-        save_button.pack(side=tk.LEFT, padx=5)
+            # 保存按钮
+            save_button = ttk.Button(
+                button_frame,
+                text="💾 保存修改",
+                command=self.save_changes
+            )
+            save_button.pack(side=tk.LEFT, padx=5)
 
-        # 取消按钮
-        cancel_button = ttk.Button(
-            button_frame,
-            text="✖ 取消",
-            command=self.window.destroy
-        )
-        cancel_button.pack(side=tk.LEFT, padx=5)
+            # 取消按钮
+            cancel_button = ttk.Button(
+                button_frame,
+                text="✖ 取消",
+                command=self.window.destroy
+            )
+            cancel_button.pack(side=tk.LEFT, padx=5)
 
         # 配置grid权重
         self.window.columnconfigure(0, weight=1)
@@ -813,7 +870,8 @@ class EvaluatorDetailPopup:
                 "name": new_name,
                 "framework": framework,
                 "metric_type": metric_type,
-                "threshold": new_threshold
+                "threshold": new_threshold,
+                "turn_mode": self.turn_mode_var.get()  # 添加对话模式
             }
 
             # 如果是自定义框架，获取评分规则

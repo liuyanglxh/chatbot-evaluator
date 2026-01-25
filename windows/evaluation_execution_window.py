@@ -842,16 +842,77 @@ class BatchEvaluationExecutor:
 
     def __init__(self, parent, evaluator_info, test_data_list, config_manager):
         self.evaluator_info = evaluator_info
-        self.test_data_list = test_data_list
         self.config_manager = config_manager
         self.results = []
         self.current_index = 0
+
+        # 预处理测试数据：根据评估器的turn_mode决定是否拆分多轮对话
+        self.test_data_list = self._preprocess_test_data(test_data_list, evaluator_info)
 
         # 创建进度窗口
         self.create_progress_window(parent)
 
         # 开始执行评估
         self.start_evaluation()
+
+    def _preprocess_test_data(self, test_data_list, evaluator_info):
+        """
+        预处理测试数据，根据评估器的turn_mode决定是否拆分多轮对话
+
+        Args:
+            test_data_list: 原始测试数据列表
+            evaluator_info: 评估器信息
+
+        Returns:
+            处理后的测试数据列表
+        """
+        processed_list = []
+        turn_mode = evaluator_info.get("turn_mode", "single")  # 默认单轮
+
+        for test_data in test_data_list:
+            turns = test_data.get("turns", [])
+
+            if turn_mode == "single":
+                # 单轮模式：如果有多轮对话，拆分成多个独立的数据
+                if len(turns) > 1:
+                    # 多轮对话，拆分
+                    for i, turn in enumerate(turns):
+                        # 创建单轮测试数据
+                        single_turn_data = {
+                            "name": f"{test_data['name']}[{i+1}/{len(turns)}]",
+                            "question": turn["question"],
+                            "answer": turn["answer"],
+                            "context": turn.get("context", ""),
+                            # 保留原始ID用于追踪
+                            "_original_id": test_data.get("id", ""),
+                            "_original_name": test_data['name'],
+                            "_turn_index": i
+                        }
+                        processed_list.append(single_turn_data)
+                else:
+                    # 单轮对话，直接使用
+                    if turns:
+                        processed_list.append({
+                            "name": test_data['name'],
+                            "question": turns[0]["question"],
+                            "answer": turns[0]["answer"],
+                            "context": turns[0].get("context", ""),
+                            "_original_id": test_data.get("id", "")
+                        })
+                    else:
+                        # 兼容旧数据结构
+                        processed_list.append({
+                            "name": test_data['name'],
+                            "question": test_data.get("question", ""),
+                            "answer": test_data.get("answer", ""),
+                            "context": test_data.get("context", ""),
+                            "_original_id": test_data.get("id", "")
+                        })
+            else:
+                # 多轮模式：直接使用原始数据，不做拆分
+                processed_list.append(test_data)
+
+        return processed_list
 
     def create_progress_window(self, parent):
         """创建进度窗口"""
