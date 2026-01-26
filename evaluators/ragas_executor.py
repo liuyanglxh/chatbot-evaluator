@@ -115,7 +115,7 @@ class RagasExecutor:
             # Convert dict to dataset
             dataset = Dataset.from_dict(data)
             # 初始化大语言模型
-            DASHSCOPE_API_KEY = 'sk-a9f37cda2dff4410941489bc3c53496d'
+            DASHSCOPE_API_KEY = model_settings['api_key']
             llm = Tongyi(
                 model_name="qwen-max",
                 dashscope_api_key=DASHSCOPE_API_KEY
