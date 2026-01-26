@@ -14,13 +14,12 @@ from ragas.metrics._answer_similarity import answer_similarity
 from ragas.metrics._context_precision import context_precision
 from ragas.metrics._context_recall import context_recall
 from ragas.metrics._faithfulness import faithfulness
-from ragas.metrics.collections import context_relevance
 
 metric_dict={"Faithfulness":faithfulness , # 忠实度
              "Answer Relevancy":answer_relevancy,# 答案相关性
              "Context Precision":context_precision,#上下文精度
              "Context Recall":context_recall,#上下文召回率
-             "Context Relevancy":context_relevance, #上下文相关性
+             "Context Relevancy":context_precision, #上下文相关性
              "Answer Correctness":answer_correctness, #答案正确性
              "Answer Similarity":answer_similarity, #答案相似性
              }
