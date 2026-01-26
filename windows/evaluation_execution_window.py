@@ -957,33 +957,43 @@ class BatchEvaluationExecutor:
                 if len(turns) > 1:
                     # 多轮对话，累积式拆分：(1), (1,2), (1,2,3)
                     for i in range(len(turns)):
-                        # 获取从第0轮到第i轮的所有对话
-                        accumulated_turns = turns[0:i+1]
+                        # 当前轮的数据
+                        current_turn = turns[i]
+                        current_question = current_turn.get("question", "").strip()
+                        current_answer = current_turn.get("answer", "").strip()
+                        current_context = current_turn.get("context", "").strip()
 
-                        # 构建累积对话文本（复用多轮模式的格式化逻辑）
-                        conversation_parts = []
-                        for j, turn in enumerate(accumulated_turns, 1):
-                            question = turn.get("question", "").strip()
-                            answer = turn.get("answer", "").strip()
-                            context = turn.get("context", "").strip()
+                        # 构建参考资料：包含历史轮次的完整对话 + 当前轮次的参考资料
+                        context_parts = []
 
-                            # 构建单轮对话文本
-                            turn_text = f"第{j}轮:\n问题: {question}\n回答: {answer}"
-                            if context:
-                                turn_text += f"\n参考资料: {context}"
-                            turn_text += "\n"
+                        # 添加历史轮次（包含问+答+参考资料）
+                        for j in range(i):  # j从0到i-1
+                            hist_turn = turns[j]
+                            hist_question = hist_turn.get("question", "").strip()
+                            hist_answer = hist_turn.get("answer", "").strip()
+                            hist_context = hist_turn.get("context", "").strip()
 
-                            conversation_parts.append(turn_text)
+                            context_parts.append(f"第{j+1}轮:")
+                            context_parts.append(f"问题：{hist_question}")
+                            context_parts.append(f"回答：{hist_answer}")
+                            if hist_context:
+                                context_parts.append(f"参考资料：{hist_context}")
+                            context_parts.append("")  # 空行分隔
 
-                        # 拼接所有累积轮次
-                        conversation_text = "\n".join(conversation_parts)
+                        # 添加当前轮次的参考资料（不包含当前轮的问和答）
+                        if current_context:
+                            context_parts.append(f"第{i+1}轮:")
+                            context_parts.append(f"参考资料：{current_context}")
 
-                        # 创建单轮测试数据（问题包含完整历史上下文）
+                        # 拼接完整的参考资料
+                        full_context = "\n".join(context_parts)
+
+                        # 创建单轮测试数据
                         single_turn_data = {
                             "name": f"{test_data['name']}[第{i+1}轮]",
-                            "question": conversation_text,  # 包含从第1轮到当前轮的完整对话
-                            "answer": turns[i]["answer"],   # 当前轮的回答
-                            "context": turns[i].get("context", ""),
+                            "question": current_question,  # 当前轮的问题
+                            "answer": current_answer,     # 当前轮的回答
+                            "context": full_context,      # 历史对话 + 当前轮参考资料
                             # 保留原始ID用于追踪
                             "_original_id": test_data.get("id", ""),
                             "_original_name": test_data['name'],
