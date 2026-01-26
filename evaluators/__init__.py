@@ -7,6 +7,8 @@ from .custom_executor import CustomExecutor
 
 __all__ = ['DeepEvalExecutor', 'CustomExecutor']
 
+from .ragas_executor import RagasExecutor
+
 
 def get_executor(evaluator_info):
     """
@@ -30,7 +32,7 @@ def get_executor(evaluator_info):
     elif framework == 'custom':
         return CustomExecutor(evaluator_info)
     elif framework == 'ragas':
-        # TODO: 实现 Ragas 执行器
-        raise NotImplementedError("Ragas 框架支持待实现")
+        # raise NotImplementedError("Ragas 框架支持待实现")
+        return RagasExecutor(evaluator_info)
     else:
         raise ValueError(f"不支持的框架: {framework}")

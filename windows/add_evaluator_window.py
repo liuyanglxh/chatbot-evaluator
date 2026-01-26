@@ -1,5 +1,5 @@
 """
-添加评估器窗口
+评估器窗口
 """
 import tkinter as tk
 from tkinter import ttk, messagebox

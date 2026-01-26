@@ -3,9 +3,10 @@
 # HTTP 请求库（用于测试连接）
 requests>=2.31.0
 
-# 未来可能需要的评估框架（可选）
-# deepeval>=1.0.0
-# ragas>=0.1.0
+#未来可能需要的评估框架（可选）
+deepeval>=1.0.0
+ragas>=0.1.0
+dashscope==1.25.9
 
 # 注意：
 # 1. tkinter 是 Python 内置库，无需安装
