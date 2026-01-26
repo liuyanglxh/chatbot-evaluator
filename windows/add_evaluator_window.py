@@ -89,12 +89,20 @@ class AddEvaluatorWindow:
 
     def _on_mousewheel(self, event):
         """鼠标滚轮事件处理"""
-        # Windows/macOS: event.delta
-        # Linux: event.num (4=up, 5=down)
-        if event.num == 5 or event.delta < 0:
-            self.canvas.yview_scroll(1, "units")
-        elif event.num == 4 or event.delta > 0:
-            self.canvas.yview_scroll(-1, "units")
+        try:
+            # 检查canvas是否还存在
+            if not self.canvas.winfo_exists():
+                return
+
+            # Windows/macOS: event.delta
+            # Linux: event.num (4=up, 5=down)
+            if event.num == 5 or event.delta < 0:
+                self.canvas.yview_scroll(1, "units")
+            elif event.num == 4 or event.delta > 0:
+                self.canvas.yview_scroll(-1, "units")
+        except (tk.TclError, AttributeError):
+            # 窗口已销毁或canvas不存在，忽略错误
+            pass
 
     def create_interface(self):
         """创建界面"""

@@ -212,7 +212,8 @@ class ConfigManager:
         """
         迁移旧的测试数据结构到新的多轮对话结构
 
-        旧结构: {name, question, answer, context, groups: []}
+        旧结构1: {name, question, answer, context, groups: []}
+        旧结构2: {name, input, actual_output, retrieval_context, group_id}
         新结构: {name, group, turns: [{question, answer, context}]}
 
         Returns:
@@ -226,7 +227,32 @@ class ConfigManager:
                 test_data["group"] = groups[0] if groups else ""
             return test_data
 
-        # 旧结构迁移
+        # 旧结构2迁移: input/actual_output格式 -> turns格式
+        if "input" in test_data and "actual_output" in test_data:
+            # 如果group_id存在但没有group，尝试通过group_id找到对应的group名称
+            if "group" not in test_data and "group_id" in test_data:
+                # 这里保持已有的group字段不变（如果已经设置过）
+                pass
+
+            # 创建新的turns结构
+            new_test_data = {
+                "id": test_data.get("id", str(uuid.uuid4())),
+                "name": test_data.get("name", ""),
+                "group": test_data.get("group", ""),
+                "turns": [
+                    {
+                        "question": test_data.get("input", ""),
+                        "answer": test_data.get("actual_output", ""),
+                        "context": test_data.get("retrieval_context", "")
+                    }
+                ],
+                # 保留其他字段
+                "expected_score": test_data.get("expected_score"),
+                "comment": test_data.get("comment")
+            }
+            return new_test_data
+
+        # 旧结构1迁移
         if "question" in test_data:
             # 提取旧的groups数组，取第一个作为group
             old_groups = test_data.get("groups", [])

@@ -358,13 +358,11 @@ class EvaluationExecutionWindow:
             messagebox.showerror("错误", "请先选择测试数据")
             return
 
-        # 获取第一轮的数据(单轮评估器只评估第一轮)
+        # 验证至少有一轮完整数据
         first_turn = turns[0]
         question = first_turn.get('question', '').strip()
         answer = first_turn.get('answer', '').strip()
-        context = first_turn.get('context', '').strip()
 
-        # 验证必填项
         if not question:
             messagebox.showerror("错误", "问题不能为空")
             return
@@ -373,16 +371,20 @@ class EvaluationExecutionWindow:
             messagebox.showerror("错误", "回答不能为空")
             return
 
-        # 显示加载弹窗
-        self.loading_dialog = self._create_loading_dialog()
+        # 构造测试数据（模拟批量测试的数据格式）
+        selected_name = self.test_data_combo.get()
+        if selected_name and selected_name != "请选择测试数据":
+            test_data_name = selected_name
+        else:
+            test_data_name = "手动输入的测试数据"
 
-        # 在后台线程中执行评估
-        thread = threading.Thread(
-            target=self._execute_evaluation_thread,
-            args=(question, answer, context)
-        )
-        thread.daemon = True
-        thread.start()
+        test_data = {
+            'name': test_data_name,
+            'turns': turns
+        }
+
+        # 使用批量测试的执行逻辑（复用BatchEvaluationExecutor）
+        BatchEvaluationExecutor(self.window, self.evaluator_info, [test_data], self.config_manager)
 
     def _create_loading_dialog(self):
         """创建加载弹窗"""
@@ -953,18 +955,41 @@ class BatchEvaluationExecutor:
             if turn_mode == "single":
                 # 单轮模式：如果有多轮对话，拆分成多个独立的数据
                 if len(turns) > 1:
-                    # 多轮对话，拆分
-                    for i, turn in enumerate(turns):
-                        # 创建单轮测试数据
+                    # 多轮对话，累积式拆分：(1), (1,2), (1,2,3)
+                    for i in range(len(turns)):
+                        # 获取从第0轮到第i轮的所有对话
+                        accumulated_turns = turns[0:i+1]
+
+                        # 构建累积对话文本（复用多轮模式的格式化逻辑）
+                        conversation_parts = []
+                        for j, turn in enumerate(accumulated_turns, 1):
+                            question = turn.get("question", "").strip()
+                            answer = turn.get("answer", "").strip()
+                            context = turn.get("context", "").strip()
+
+                            # 构建单轮对话文本
+                            turn_text = f"第{j}轮:\n问题: {question}\n回答: {answer}"
+                            if context:
+                                turn_text += f"\n参考资料: {context}"
+                            turn_text += "\n"
+
+                            conversation_parts.append(turn_text)
+
+                        # 拼接所有累积轮次
+                        conversation_text = "\n".join(conversation_parts)
+
+                        # 创建单轮测试数据（问题包含完整历史上下文）
                         single_turn_data = {
-                            "name": f"{test_data['name']}[{i+1}/{len(turns)}]",
-                            "question": turn["question"],
-                            "answer": turn["answer"],
-                            "context": turn.get("context", ""),
+                            "name": f"{test_data['name']}[第{i+1}轮]",
+                            "question": conversation_text,  # 包含从第1轮到当前轮的完整对话
+                            "answer": turns[i]["answer"],   # 当前轮的回答
+                            "context": turns[i].get("context", ""),
                             # 保留原始ID用于追踪
                             "_original_id": test_data.get("id", ""),
                             "_original_name": test_data['name'],
-                            "_turn_index": i
+                            "_turn_index": i,
+                            "_turn_count": len(turns),  # 总轮数
+                            "_accumulated_turns": i + 1  # 当前累积轮数
                         }
                         processed_list.append(single_turn_data)
                 else:
