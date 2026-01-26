@@ -165,14 +165,27 @@ class EvaluatorListWindow:
         tree_frame.columnconfigure(0, weight=1)
         tree_frame.rowconfigure(0, weight=1)
 
+        # 按钮区域
+        button_frame = ttk.Frame(main_frame)
+        button_frame.grid(row=3, column=0, columnspan=3, pady=(20, 0))
+
+        # Excel批量评估按钮
+        excel_batch_button = ttk.Button(
+            button_frame,
+            text="📊 Excel批量评估",
+            command=self.open_excel_batch_evaluation,
+            width=20
+        )
+        excel_batch_button.pack(side=tk.LEFT, padx=5)
+
         # 关闭按钮
         close_button = ttk.Button(
-            main_frame,
+            button_frame,
             text="关闭",
             command=self.window.destroy,
             width=15
         )
-        close_button.grid(row=3, column=0, columnspan=3, pady=(20, 0))
+        close_button.pack(side=tk.LEFT, padx=5)
 
     def _get_framework_display_name(self, framework: str) -> str:
         """获取框架的友好显示名称"""
@@ -362,6 +375,11 @@ class EvaluatorListWindow:
                 self.load_evaluators()
             else:
                 messagebox.showerror("错误", "删除评估器失败")
+
+    def open_excel_batch_evaluation(self):
+        """打开Excel批量评估窗口"""
+        from windows.excel_batch_evaluation_window import ExcelBatchEvaluationWindow
+        ExcelBatchEvaluationWindow(self.window)
 
     def center_window(self):
         """窗口居中显示"""
