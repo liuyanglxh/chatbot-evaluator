@@ -147,7 +147,7 @@ class RagasExecutor:
             return {
                 'success': True,
                 'score': result[metric.name][0],
-                'passed': True,
+                'passed': result[metric.name][0]>=0.6,
                 'message': '',
                 'reason': '',
                 'verbose_logs': '',  # 添加详细日志
