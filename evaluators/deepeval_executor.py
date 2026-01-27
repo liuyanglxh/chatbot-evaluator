@@ -60,7 +60,7 @@ class DeepEvalExecutor:
         except Exception as e:
             print(f"⚠️  清除DeepEval缓存失败: {e}")
 
-    def execute(self, question: str, answer: str, context: str, model_settings: Dict) -> Dict[str, Any]:
+    def execute(self, question: str, answer: str, context: str, model_settings: Dict, expected_answer: str = None) -> Dict[str, Any]:
         """
         执行评估
 
@@ -69,6 +69,7 @@ class DeepEvalExecutor:
             answer: Chatbot 回答
             context: 上下文（可选）
             model_settings: 大模型配置
+            expected_answer: 期望回答（可选）
 
         Returns:
             评估结果字典
@@ -84,8 +85,8 @@ class DeepEvalExecutor:
                 base_url=model_settings['base_url']
             )
 
-            # 3. 创建测试用例
-            test_case = self._create_test_case(question, answer, context)
+            # 3. 创建测试用例（支持期望回答）
+            test_case = self._create_test_case(question, answer, context, expected_answer)
 
             # 4. 创建评估指标
             metric = self._create_metric(qwen_model)
@@ -93,6 +94,8 @@ class DeepEvalExecutor:
             # 5. 运行评估
             print(f"\n{'='*60}")
             print(f"开始评估: {self.metric_type}")
+            if expected_answer and expected_answer.strip():
+                print(f"使用期望回答: {expected_answer[:50]}...")
             print(f"{'='*60}")
 
             result = evaluate(test_cases=[test_case], metrics=[metric])
@@ -107,19 +110,30 @@ class DeepEvalExecutor:
                 'message': f"评估失败: {str(e)}"
             }
 
-    def _create_test_case(self, question: str, answer: str, context: str) -> LLMTestCase:
-        """创建测试用例"""
+    def _create_test_case(self, question: str, answer: str, context: str, expected_answer: str = None) -> LLMTestCase:
+        """创建测试用例（支持期望回答）"""
         # 准备 retrieval_context
         retrieval_context = [context] if context else []
 
+        # 准备 expected_output（只有当提供了期望回答且不为空时才使用）
+        expected_output = expected_answer if expected_answer and expected_answer.strip() else None
+
         # 根据 metric_type 决定是否需要某些参数
         if self.metric_type in ["Faithfulness", "Contextual Precision", "Contextual Recall"]:
-            # 这些指标需要 retrieval_context
-            return LLMTestCase(
-                input=question,
-                actual_output=answer,
-                retrieval_context=retrieval_context
-            )
+            # 这些指标需要 retrieval_context，Contextual 系列也可以使用 expected_output
+            if expected_output and self.metric_type in ["Contextual Precision", "Contextual Recall"]:
+                return LLMTestCase(
+                    input=question,
+                    actual_output=answer,
+                    retrieval_context=retrieval_context,
+                    expected_output=expected_output
+                )
+            else:
+                return LLMTestCase(
+                    input=question,
+                    actual_output=answer,
+                    retrieval_context=retrieval_context
+                )
         elif self.metric_type in ["Answer Relevancy"]:
             # Answer Relevancy 需要 retrieval_context（用于生成反事实问题）
             return LLMTestCase(
@@ -134,11 +148,13 @@ class DeepEvalExecutor:
                 actual_output=answer
             )
         else:
-            # 其他指标使用通用配置
+            # 其他指标使用通用配置（包括 GEval）
+            # 对于 GEval，期望输出通过 evaluation_params 控制
             return LLMTestCase(
                 input=question,
                 actual_output=answer,
-                retrieval_context=retrieval_context
+                retrieval_context=retrieval_context,
+                expected_output=expected_output  # 如果有期望回答就传入
             )
 
     def _create_metric(self, model):
@@ -347,14 +363,25 @@ class DeepEvalExecutor:
             return """请评估回答的质量，考虑准确性、相关性和完整性。"""
 
     def _get_evaluation_params(self, metric_type: str) -> list:
-        """获取 evaluation_params"""
+        """获取 evaluation_params（支持期望输出）"""
         # 根据不同的自定义类型返回不同的参数
         if "Role Adherence" in metric_type or "角色遵循" in metric_type:
             return [LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT]
         elif "Correctness" in metric_type or "正确性" in metric_type:
-            return [LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT, LLMTestCaseParams.RETRIEVAL_CONTEXT]
+            # Correctness 评估器应该支持期望输出
+            return [
+                LLMTestCaseParams.INPUT,
+                LLMTestCaseParams.ACTUAL_OUTPUT,
+                LLMTestCaseParams.EXPECTED_OUTPUT,  # 添加期望输出支持
+                LLMTestCaseParams.RETRIEVAL_CONTEXT
+            ]
         elif "Conversation Completeness" in metric_type or "对话完整性" in metric_type:
-            return [LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT]
+            # 对话完整性也可以使用期望输出作为参考
+            return [
+                LLMTestCaseParams.INPUT,
+                LLMTestCaseParams.ACTUAL_OUTPUT,
+                LLMTestCaseParams.EXPECTED_OUTPUT  # 添加期望输出支持
+            ]
         else:
             return [LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT]
 
@@ -387,12 +414,15 @@ class DeepEvalExecutor:
             # 提取分数
             score = metric_data.score if metric_data.score is not None else 0.0
 
-            # 判断是否通过
-            # 对于 Toxicity 指标，需要特殊处理：分数越低越好（0=无毒性=好，1=有毒性=坏）
+            # 对某些DeepEval指标进行分数反转
+            # Toxicity: DeepEval 0=无毒性(好), 1=有毒性(坏) -> 我们的标准: 0=有不当内容(坏), 1=内容合适(好)
+            # Bias: DeepEval 0=无偏见(好), 1=有偏见(坏) -> 我们的标准: 0=有偏见(坏), 1=无偏见(好)
             metric_type = self.evaluator_info.get('metric_type', '').lower()
-            if 'toxicity' in metric_type:
-                # Toxicity：score <= threshold 表示通过（毒性低于阈值）
-                passed = score <= self.threshold
+            if 'toxicity' in metric_type or 'bias' in metric_type:
+                # 反转分数：0→1, 1→0, 0.5→0.5
+                score = 1.0 - score
+                # passed判定也需要反转：原分数 <= threshold 变为 新分数 >= threshold
+                passed = score >= self.threshold
             else:
                 # 其他指标：使用框架的 success 判定
                 passed = metric_data.success

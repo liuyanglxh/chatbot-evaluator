@@ -28,7 +28,7 @@ def format_number(value):
 
 
 class ResultPopupWindow:
-    """评估结果弹窗"""
+    """评估结果弹窗 - 支持单个或批量结果"""
 
     def __init__(self, parent, result_data, evaluator_info):
         """
@@ -36,30 +36,44 @@ class ResultPopupWindow:
 
         Args:
             parent: 父窗口
-            result_data: 评估结果数据
+            result_data: 评估结果数据（单个字典或字典列表）
             evaluator_info: 评估器信息
         """
-        self.result_data = result_data
+        # 支持数组输入：如果是单个结果，转换为数组
+        if isinstance(result_data, dict):
+            self.results_list = [result_data]
+        elif isinstance(result_data, list):
+            self.results_list = result_data
+        else:
+            raise ValueError("result_data 必须是字典或字典列表")
+
+        self.current_index = 0  # 当前显示的结果索引
+        self.total_results = len(self.results_list)
+
+        # 如果只有一个结果，直接使用该结果
+        self.result_data = self.results_list[0]
         self.evaluator_info = evaluator_info
 
         # 调试：打印接收到的数据
         print("\n" + "="*60)
-        print("ResultPopupWindow 接收到的数据:")
-        print(f"  score: {result_data.get('score')}")
-        print(f"  passed: {result_data.get('passed')}")
-        print(f"  reason 长度: {len(result_data.get('reason', ''))}")
-        print(f"  reason 前200字: {result_data.get('reason', '')[:200]}")
-        print(f"  verbose_logs 是否存在: {result_data.get('verbose_logs') is not None}")
-        print(f"  verbose_logs 类型: {type(result_data.get('verbose_logs'))}")
-        print(f"  verbose_logs 长度: {len(result_data.get('verbose_logs', '') or '')}")
-        if result_data.get('verbose_logs'):
-            print(f"  verbose_logs 前300字: {result_data.get('verbose_logs', '')[:300]}")
+        print(f"ResultPopupWindow 接收到的数据 (共 {self.total_results} 个结果):")
+        for i, result in enumerate(self.results_list):
+            print(f"  结果 {i+1}:")
+            print(f"    score: {result.get('score')}")
+            print(f"    passed: {result.get('passed')}")
+            print(f"    reason 长度: {len(result.get('reason', ''))}")
         print("="*60 + "\n")
 
         # 创建弹窗
         self.window = tk.Toplevel(parent)
-        self.window.title("评估结果")
-        self.window.geometry("900x800")  # 增加高度：800 -> 900
+
+        # 根据结果数量设置标题
+        if self.total_results > 1:
+            self.window.title(f"评估结果 (1/{self.total_results})")
+        else:
+            self.window.title("评估结果")
+
+        self.window.geometry("900x800")
         self.window.transient(parent)
         self.window.grab_set()
 
@@ -149,6 +163,9 @@ class ResultPopupWindow:
 
         # ========== 输入数据卡片 ==========
         self._create_input_data_card(main_container)
+
+        # ========== 框架返回的原文卡片（移到最底部）==========
+        self._create_verbose_logs_card(main_container)
 
         # ========== 按钮区域 ==========
         self._create_buttons(main_container)
@@ -560,22 +577,17 @@ class ResultPopupWindow:
             english_text.insert(1.0, english_content)
             english_text.config(state=tk.DISABLED)
 
-        # ===== Tab 3: 中英对照（默认显示） =====
+        # ===== Tab 3: 中英对照（默认显示） - 移除"框架返回的原文" =====
         if is_english:
             bilingual_tab = ttk.Frame(self.reason_notebook)
             self.reason_notebook.add(bilingual_tab, text="📖 中英对照")
 
-            # 中英对照内容
+            # 中英对照内容（仅包含分数行和翻译）
             score_line = f"{'✅ 通过' if passed else '❌ 未通过'} | 得分: {format_number(score)} / {format_number(threshold)}"
             if is_english:
                 score_line += f" ({'PASS' if passed else 'FAIL'} | Score: {format_number(score)} / {format_number(threshold)})"
 
             bilingual_content = score_line + "\n\n"
-
-            # 框架返回的原文
-            bilingual_content += "【框架返回的原文】\n"
-            bilingual_content += "="*60 + "\n"
-            bilingual_content += reason + "\n\n"
 
             # 中文翻译（占位符）
             bilingual_content += "【中文翻译】\n"
@@ -598,7 +610,7 @@ class ResultPopupWindow:
             bilingual_text.config(state=tk.DISABLED)
             self.bilingual_text_widget = bilingual_text
 
-            # 后台翻译并更新
+            # 后台翻译并更新（不包含原文）
             self._translate_and_update_bilingual(reason, score, threshold, passed)
 
         # ===== 如果是中文，只显示一个Tab =====
@@ -625,58 +637,96 @@ class ResultPopupWindow:
             chinese_text.insert(1.0, chinese_content)
             chinese_text.config(state=tk.DISABLED)
 
-        # 检查是否有详细日志
+        # 移除原来的详细日志部分（将移到独立卡片中）
+
+    def _create_verbose_logs_card(self, parent):
+        """创建框架返回的原文卡片（移到页面最底部）"""
+        # 检查是否有详细日志或英文原文
         verbose_logs = self.result_data.get('verbose_logs', '')
+        reason = self.result_data.get('reason', '')
+        is_english = self._is_english_text(reason)
+
+        # 如果没有详细日志也不是英文，不创建这个卡片
         has_verbose_logs = verbose_logs and isinstance(verbose_logs, str) and len(verbose_logs.strip()) > 0
 
-        print(f"\n调试 - 创建原因卡片:")
-        print(f"  verbose_logs类型: {type(verbose_logs)}")
-        print(f"  verbose_logs长度: {len(verbose_logs) if verbose_logs else 0}")
-        print(f"  has_verbose_logs: {has_verbose_logs}")
-        print(f"  verbose_logs内容: {verbose_logs[:200] if has_verbose_logs else 'None'}\n")
+        if not has_verbose_logs and not is_english:
+            return
 
+        # 卡片容器
+        card_frame = tk.Frame(parent, bg="white", relief=tk.RAISED, bd=1)
+        card_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+
+        # 内边距
+        content_frame = tk.Frame(card_frame, bg="white", padx=20, pady=15)
+        content_frame.pack(fill=tk.BOTH, expand=True)
+
+        # 标题行容器
+        title_row = tk.Frame(content_frame, bg="white")
+        title_row.pack(fill=tk.X, pady=(0, 10))
+
+        # 标题
+        title_label = tk.Label(
+            title_row,
+            text="📋 框架返回的原文",
+            font=font_manager.panel_font_bold(),
+            bg="white",
+            fg="#4A5568"
+        )
+        title_label.pack(anchor=tk.W)
+
+        # 展开/收起按钮
+        self.verbose_expanded = False
+        self.verbose_text_widget = None
+
+        toggle_button = ttk.Button(
+            title_row,
+            text="展开 ▼",
+            command=lambda: self._toggle_verbose_logs(),
+            width=10
+        )
+        toggle_button.pack(side=tk.RIGHT)
+        self.verbose_toggle_button = toggle_button
+
+        # 创建可折叠容器
+        self.verbose_frame = tk.Frame(content_frame, bg="white")
+
+        # 如果是英文，显示原始reason
+        if is_english:
+            # 使用ScrolledText显示原文
+            text = scrolledtext.ScrolledText(
+                self.verbose_frame,
+                font=font_manager.panel_font(),
+                bg="#F7FAFC",
+                fg="#2D3748",
+                relief=tk.FLAT,
+                padx=10,
+                pady=10,
+                height=8,
+                wrap=tk.WORD
+            )
+            text.pack(fill=tk.BOTH, expand=True)
+            text.insert(1.0, reason)
+            text.config(state=tk.DISABLED)
+            self.verbose_text_widget = text
+
+        # 如果有详细日志，也显示
         if has_verbose_logs:
-            print("\n✅ 正在创建详细日志区域...")
+            if is_english:
+                # 如果已经有文本框，添加分隔符
+                separator = ttk.Separator(self.verbose_frame, orient=tk.HORIZONTAL)
+                separator.pack(fill=tk.X, pady=10)
 
-            # 添加分隔线
-            separator = ttk.Separator(content_frame, orient=tk.HORIZONTAL)
-            separator.pack(fill=tk.X, pady=(10, 10))
-            print("  ✓ 分隔线已创建")
-
-            # 日志标题和按钮
-            log_header = tk.Frame(content_frame, bg="white")
-            log_header.pack(fill=tk.X)
-            print("  ✓ 日志标题容器已创建")
-
-            tk.Label(
-                log_header,
-                text="📋 详细评估步骤",
+            log_label = tk.Label(
+                self.verbose_frame,
+                text="详细评估步骤:",
                 font=font_manager.panel_font_bold(),
                 bg="white",
                 fg="#4A5568"
-            ).pack(side=tk.LEFT)
-            print("  ✓ 日志标题已创建")
-
-            # 展开/收起按钮
-            self.log_expanded = False
-            self.log_text_widget = None
-
-            toggle_button = ttk.Button(
-                log_header,
-                text="展开 ▼",
-                command=lambda: self._toggle_log(),
-                width=10
             )
-            toggle_button.pack(side=tk.RIGHT)
-            self.toggle_button = toggle_button
-            print("  ✓ 展开按钮已创建")
-
-            # 日志文本框（初始隐藏）
-            self.log_frame = tk.Frame(content_frame, bg="white")
-            print("  ✓ 日志容器已创建（初始隐藏）")
+            log_label.pack(anchor=tk.W, pady=(10, 5))
 
             log_text = scrolledtext.ScrolledText(
-                self.log_frame,
+                self.verbose_frame,
                 font=("Courier New", 10),
                 bg="#2D3748",
                 fg="#E2E8F0",
@@ -689,15 +739,72 @@ class ResultPopupWindow:
             log_text.pack(fill=tk.BOTH, expand=True)
             log_text.insert(1.0, verbose_logs)
             log_text.config(state=tk.DISABLED)
-            self.log_text_widget = log_text
-            print("  ✓ 日志文本框已创建\n")
+
+            if self.verbose_text_widget is None:
+                self.verbose_text_widget = log_text
+
+    def _toggle_verbose_logs(self):
+        """切换框架原文的显示/隐藏"""
+        if self.verbose_expanded:
+            # 收起
+            self.verbose_frame.pack_forget()
+            self.verbose_toggle_button.config(text="展开 ▼")
+            self.verbose_expanded = False
         else:
-            print("\n❌ has_verbose_logs 为 False，不创建详细日志区域\n")
+            # 展开
+            self.verbose_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+            self.verbose_toggle_button.config(text="收起 ▲")
+            self.verbose_expanded = True
 
     def _create_buttons(self, parent):
         """创建按钮区域"""
         button_frame = tk.Frame(parent, bg="#F7FAFC")
         button_frame.pack(fill=tk.X, pady=(10, 0))
+
+        # 左侧：导航按钮（如果有多个结果）
+        if self.total_results > 1:
+            prev_button = ttk.Button(
+                button_frame,
+                text="◀ 上一个",
+                command=self.show_previous,
+                width=12,
+                state=tk.DISABLED if self.current_index == 0 else tk.NORMAL
+            )
+            prev_button.pack(side=tk.LEFT, padx=(0, 5))
+            self.prev_button = prev_button
+
+            # 结果计数标签
+            count_label = tk.Label(
+                button_frame,
+                text=f"{self.current_index + 1}/{self.total_results}",
+                font=font_manager.panel_font_bold(),
+                bg="#F7FAFC",
+                fg="#2D3748"
+            )
+            count_label.pack(side=tk.LEFT, padx=5)
+            self.count_label = count_label
+
+            next_button = ttk.Button(
+                button_frame,
+                text="下一个 ▶",
+                command=self.show_next,
+                width=12,
+                state=tk.DISABLED if self.current_index == self.total_results - 1 else tk.NORMAL
+            )
+            next_button.pack(side=tk.LEFT, padx=(5, 0))
+            self.next_button = next_button
+
+        # 右侧：翻译和关闭按钮
+        # 如果是英文，显示翻译按钮
+        is_english = self._is_english_text(self.result_data.get('reason', ''))
+        if is_english:
+            translate_button = ttk.Button(
+                button_frame,
+                text="🌐 翻译为中文",
+                command=self.translate_reason,
+                width=15
+            )
+            translate_button.pack(side=tk.RIGHT, padx=(0, 10))
 
         # 关闭按钮
         close_button = ttk.Button(
@@ -707,17 +814,6 @@ class ResultPopupWindow:
             width=15
         )
         close_button.pack(side=tk.RIGHT)
-
-        # 如果是英文，显示翻译按钮
-        is_english = self.result_data.get('is_english', False)
-        if is_english:
-            translate_button = ttk.Button(
-                button_frame,
-                text="🌐 翻译为中文",
-                command=self.translate_reason,
-                width=15
-            )
-            translate_button.pack(side=tk.RIGHT, padx=(0, 10))
 
     def translate_reason(self):
         """翻译评估原因"""
@@ -960,7 +1056,7 @@ class ResultPopupWindow:
         thread.start()
 
     def _update_bilingual_content(self, original, translated, score, threshold, passed):
-        """更新中英对照内容"""
+        """更新中英对照内容（不包含原文）"""
         self.bilingual_text_widget.config(state=tk.NORMAL)
         self.bilingual_text_widget.delete(1.0, tk.END)
 
@@ -970,31 +1066,13 @@ class ResultPopupWindow:
 
         bilingual_content = score_line + "\n\n"
 
-        # 框架返回的原文
-        bilingual_content += "【框架返回的原文】\n"
-        bilingual_content += "="*60 + "\n"
-        bilingual_content += original + "\n\n"
-
-        # 中文翻译
+        # 中文翻译（不再显示原文）
         bilingual_content += "【中文翻译】\n"
         bilingual_content += "="*60 + "\n"
         bilingual_content += translated
 
         self.bilingual_text_widget.insert(1.0, bilingual_content)
         self.bilingual_text_widget.config(state=tk.DISABLED)
-
-    def _toggle_log(self):
-        """切换日志显示/隐藏"""
-        if self.log_expanded:
-            # 收起
-            self.log_frame.pack_forget()
-            self.toggle_button.config(text="展开 ▼")
-            self.log_expanded = False
-        else:
-            # 展开
-            self.log_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
-            self.toggle_button.config(text="收起 ▲")
-            self.log_expanded = True
 
     def _center_dialog(self, dialog):
         """窗口居中显示"""
@@ -1025,3 +1103,57 @@ class ResultPopupWindow:
         y = (screen_height - height) // 2
 
         self.window.geometry(f'{width}x{height}+{x}+{y}')
+
+    def show_next(self):
+        """显示下一个结果"""
+        if self.current_index < self.total_results - 1:
+            self.current_index += 1
+            self._update_display()
+
+    def show_previous(self):
+        """显示上一个结果"""
+        if self.current_index > 0:
+            self.current_index -= 1
+            self._update_display()
+
+    def _update_display(self):
+        """更新显示内容"""
+        # 更新当前结果数据
+        self.result_data = self.results_list[self.current_index]
+
+        # 更新标题
+        self.window.title(f"评估结果 ({self.current_index + 1}/{self.total_results})")
+
+        # 清空当前内容
+        for widget in self.scrollable_frame.winfo_children():
+            widget.destroy()
+
+        # 重新创建界面
+        main_container = tk.Frame(self.scrollable_frame, bg="#F7FAFC")
+        main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+
+        # 重建所有组件
+        self._create_header(main_container)
+
+        top_section = tk.Frame(main_container, bg="#F7FAFC")
+        top_section.pack(fill=tk.X, pady=(0, 15))
+
+        self._create_status_card(top_section)
+        self._create_score_card(top_section)
+        self._create_info_card(top_section)
+        self._create_reason_card(main_container)
+        self._create_input_data_card(main_container)
+        self._create_verbose_logs_card(main_container)
+        self._create_buttons(main_container)
+
+        # 更新导航按钮状态
+        if hasattr(self, 'prev_button'):
+            self.prev_button.config(
+                state=tk.DISABLED if self.current_index == 0 else tk.NORMAL
+            )
+        if hasattr(self, 'next_button'):
+            self.next_button.config(
+                state=tk.DISABLED if self.current_index == self.total_results - 1 else tk.NORMAL
+            )
+        if hasattr(self, 'count_label'):
+            self.count_label.config(text=f"{self.current_index + 1}/{self.total_results}")

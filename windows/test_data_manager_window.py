@@ -620,7 +620,7 @@ class TestDataDetailPopup:
         turns = self.test_data.get('turns', [])
         if not turns:
             # 如果没有轮次，创建一个空轮次
-            turns = [{'question': '', 'answer': '', 'context': ''}]
+            turns = [{'question': '', 'answer': '', 'context': '', 'expected_answer': ''}]
 
         for i, turn in enumerate(turns):
             self._add_turn_ui(i, turn)
@@ -631,17 +631,18 @@ class TestDataDetailPopup:
             self._adjust_text_height(turn_widget['question'])
             self._adjust_text_height(turn_widget['answer'])
             self._adjust_text_height(turn_widget['context'])
+            self._adjust_text_height(turn_widget['expected_answer'])  # 新增
 
     def _add_turn_ui(self, turn_index, turn_data=None):
         """
-        添加一轮对话的UI
+        添加一轮对话的UI（支持期望回答）
 
         Args:
             turn_index: 轮次索引
-            turn_data: 轮次数据 {question, answer, context}
+            turn_data: 轮次数据 {question, answer, context, expected_answer}
         """
         if turn_data is None:
-            turn_data = {'question': '', 'answer': '', 'context': ''}
+            turn_data = {'question': '', 'answer': '', 'context': '', 'expected_answer': ''}
 
         # 轮次框架（带边框）
         turn_frame = ttk.LabelFrame(
@@ -705,6 +706,24 @@ class TestDataDetailPopup:
         # 绑定动态高度调整
         context_text.bind("<KeyRelease>", lambda e: self._adjust_text_height(context_text))
 
+        # 期望回答（新增）
+        ttk.Label(turn_frame, text="期望回答（可选）:", font=font_manager.panel_font_bold()).grid(
+            row=6, column=0, sticky=tk.NW, pady=5)
+        expected_answer_text = tk.Text(
+            turn_frame,
+            width=font_manager.get_entry_width(60),
+            height=1,  # 初始高度为1，会动态调整
+            font=font_manager.panel_font(),
+            wrap=tk.WORD,
+            relief=tk.RIDGE,
+            padx=5,
+            pady=5
+        )
+        expected_answer_text.grid(row=7, column=0, sticky=(tk.W, tk.E), pady=5)
+        expected_answer_text.insert(1.0, turn_data.get('expected_answer', ''))
+        # 绑定动态高度调整
+        expected_answer_text.bind("<KeyRelease>", lambda e: self._adjust_text_height(expected_answer_text))
+
         # 删除按钮（所有轮次都有，但只有一轮时禁用）
         delete_button = ttk.Button(
             turn_frame,
@@ -712,7 +731,7 @@ class TestDataDetailPopup:
             command=lambda: self._remove_turn(turn_index),
             state=tk.NORMAL if len(self.turns_widgets) > 1 else tk.DISABLED
         )
-        delete_button.grid(row=6, column=0, sticky=tk.E, pady=5)
+        delete_button.grid(row=8, column=0, sticky=tk.E, pady=5)
 
         # 存储这轮的UI组件
         self.turns_widgets.append({
@@ -720,13 +739,14 @@ class TestDataDetailPopup:
             'question': question_text,
             'answer': answer_text,
             'context': context_text,
+            'expected_answer': expected_answer_text,  # 新增
             'delete_button': delete_button
         })
 
     def _add_new_turn(self):
         """添加新的空轮次"""
         turn_index = len(self.turns_widgets)
-        self._add_turn_ui(turn_index, {'question': '', 'answer': '', 'context': ''})
+        self._add_turn_ui(turn_index, {'question': '', 'answer': '', 'context': '', 'expected_answer': ''})
 
         # 更新所有删除按钮状态（现在有超过一轮了）
         self._update_delete_buttons_state()
@@ -790,6 +810,7 @@ class TestDataDetailPopup:
                 question = turn_widget['question'].get(1.0, tk.END).strip()
                 answer = turn_widget['answer'].get(1.0, tk.END).strip()
                 context = turn_widget['context'].get(1.0, tk.END).strip()
+                expected_answer = turn_widget['expected_answer'].get(1.0, tk.END).strip()  # 新增
 
                 # 验证每轮的问题和回答
                 if not question:
@@ -802,7 +823,8 @@ class TestDataDetailPopup:
                 turns.append({
                     'question': question,
                     'answer': answer,
-                    'context': context
+                    'context': context,
+                    'expected_answer': expected_answer  # 新增
                 })
 
             # 验证至少有一轮

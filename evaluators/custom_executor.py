@@ -45,7 +45,7 @@ class CustomExecutor:
             print(f"    - {rule['score']}: {rule['description'][:50]}...")
         print(f"{'='*60}\n")
 
-    def execute(self, question: str, answer: str, context: str, model_settings: Dict) -> Dict[str, Any]:
+    def execute(self, question: str, answer: str, context: str, model_settings: Dict, expected_answer: str = None) -> Dict[str, Any]:
         """
         执行评估
 
@@ -54,6 +54,7 @@ class CustomExecutor:
             answer: Chatbot 回答（多轮模式下为空）
             context: 上下文（多轮模式下为空）
             model_settings: 大模型配置
+            expected_answer: 期望回答（可选）
 
         Returns:
             评估结果字典
@@ -70,7 +71,7 @@ class CustomExecutor:
             )
 
             # 3. 生成Prompt
-            prompt = self._build_prompt(question, answer, context, is_multi_turn)
+            prompt = self._build_prompt(question, answer, context, is_multi_turn, expected_answer)
 
             print(f"\n{'='*60}")
             if is_multi_turn:
@@ -136,8 +137,8 @@ class CustomExecutor:
         # 多轮对话以"第1轮:"开头
         return question.strip().startswith("第1轮:")
 
-    def _build_prompt(self, question: str, answer: str, context: str, is_multi_turn: bool = False) -> str:
-        """构建评估Prompt"""
+    def _build_prompt(self, question: str, answer: str, context: str, is_multi_turn: bool = False, expected_answer: str = None) -> str:
+        """构建评估Prompt（支持期望回答）"""
 
         # 构建评分标准部分
         rules_text = ""
@@ -148,6 +149,19 @@ class CustomExecutor:
 
         if is_multi_turn:
             # 多轮对话的Prompt
+            expected_part = ""
+            if expected_answer and expected_answer.strip():
+                expected_part = f"""
+
+## 期望回答（参考标准）
+
+以下是对话的理想回答，请作为评分的参考标准：
+
+{expected_answer}
+
+**注意：** 期望回答是一个参考标准，评估时应重点考察实际对话与期望回答的接近程度。
+"""
+
             prompt = f"""你是一个专业的评估助手。请根据以下评分标准对多轮对话进行评估。
 
 ## 评分标准
@@ -158,15 +172,16 @@ class CustomExecutor:
 以下是一段多轮对话:
 
 {question}
-
+{expected_part}
 ## 评估要求
 
 1. 仔细阅读并理解整个多轮对话
-2. 根据上述评分标准，选择最符合的一个分数
-3. **必须从给定的分数中选择一个**，不能自定义其他分数
-4. 给出详细的评分原因，说明为什么选择这个分数
-5. 如果回答符合多个标准，选择分数最高的那个
-6. 评估时应该关注整体对话的质量和连贯性
+{'2. 如果提供了期望回答，请将实际对话与期望回答进行对比' if expected_answer and expected_answer.strip() else '2. 仔细理解对话内容'}
+3. 根据上述评分标准，选择最符合的一个分数
+4. **必须从给定的分数中选择一个**，不能自定义其他分数
+5. 给出详细的评分原因，说明为什么选择这个分数
+6. 如果回答符合多个标准，选择分数最高的那个
+7. 评估时应该关注整体对话的质量和连贯性
 
 ## 输出格式
 
@@ -181,6 +196,13 @@ class CustomExecutor:
 """
         else:
             # 单轮对话的Prompt
+            expected_part = ""
+            if expected_answer and expected_answer.strip():
+                expected_part = f"""
+
+期望回答（参考标准）: {expected_answer}
+"""
+
             prompt = f"""你是一个专业的评估助手。请根据以下评分标准对回答进行评估。
 
 ## 评分标准
@@ -193,14 +215,15 @@ class CustomExecutor:
 回答：{answer}
 
 上下文：{context}
-
+{expected_part}
 ## 评估要求
 
 1. 仔细阅读并理解问题、回答和上下文
-2. 根据上述评分标准，选择最符合的一个分数
-3. **必须从给定的分数中选择一个**，不能自定义其他分数
-4. 给出详细的评分原因，说明为什么选择这个分数
-5. 如果回答符合多个标准，选择分数最高的那个
+{'2. 如果提供了期望回答，请将实际回答与期望回答进行对比，重点考察接近程度' if expected_answer and expected_answer.strip() else '2. 仔细理解回答内容'}
+3. 根据上述评分标准，选择最符合的一个分数
+4. **必须从给定的分数中选择一个**，不能自定义其他分数
+5. 给出详细的评分原因，说明为什么选择这个分数
+6. 如果回答符合多个标准，选择分数最高的那个
 
 ## 输出格式
 
