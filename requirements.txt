@@ -1,16 +1,44 @@
-# LLM 评估工具 - 依赖包
+# LLM 评估工具 - Python 依赖包
+# Python 版本要求: >= 3.8
 
-# HTTP 请求库（用于测试连接）
+# ==================== 核心依赖 ====================
+
+# HTTP 请求库
 requests>=2.31.0
 
-#未来可能需要的评估框架（可选）
-deepeval>=1.0.0
-ragas>=0.1.0
-dashscope==1.25.9
+# Excel 文件处理
+openpyxl>=3.1.0
 
-# 注意：
-# 1. tkinter 是 Python 内置库，无需安装
-# 2. 如果在某些系统上提示缺少 tkinter：
+# ==================== 评估框架 ====================
+
+# DeepEval 评估框架
+deepeval>=1.0.0
+
+# Ragas 评估框架
+ragas>=0.1.0
+
+# Ragas 依赖的嵌入模型
+langchain-community>=0.0.10
+
+# 阿里云通义千问（用于 Ragas）
+dashscope>=1.14.0
+
+# ==================== 说明 ====================
+
+# Python 内置库（无需安装）：
+# - tkinter (GUI 框架)
+# - json, os, pathlib, platform, uuid, re, threading, datetime, typing
+# - abc (抽象基类)
+
+# 注意事项：
+# 1. tkinter 是 Python 内置库，通常已预装
 #    - macOS: 通常已预装
 #    - Windows: 通常已预装
 #    - Ubuntu/Debian: sudo apt-get install python3-tk
+#
+# 2. 如果使用 Ragas 评估器，需要配置阿里云 DashScope API Key
+#
+# 3. 如果使用 DeepEval 评估器，需要配置 OpenAI API Key 或其他兼容的 API
+#
+# 4. 安装命令：
+#    pip install -r requirements.txt
