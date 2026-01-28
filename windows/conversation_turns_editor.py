@@ -179,6 +179,33 @@ class ConversationTurnsEditor:
         if not self.editable:
             context_text.config(state=tk.DISABLED)
 
+        # 期望回答（如果有）
+        expected_answer = turn_data.get('expected_answer', '').strip()
+        expected_text = None
+        if expected_answer:
+            ttk.Label(
+                turn_frame,
+                text="🎯 期望回答:",
+                font=font_manager.panel_font_bold()
+            ).pack(anchor=tk.W, pady=5)
+
+            expected_text = tk.Text(
+                turn_frame,
+                width=60,
+                height=2,
+                font=font_manager.panel_font(),
+                wrap=tk.WORD,
+                relief=tk.RIDGE,
+                padx=5,
+                pady=5,
+                bg="#F7FAFC"
+            )
+            expected_text.pack(fill=tk.BOTH, expand=True, pady=5)
+            expected_text.insert(1.0, expected_answer)
+
+            # 期望回答始终只读
+            expected_text.config(state=tk.DISABLED)
+
         # 删除按钮(仅可编辑模式)
         delete_button = None
         if self.editable:
@@ -190,13 +217,19 @@ class ConversationTurnsEditor:
             delete_button.pack(anchor=tk.E, pady=5)
 
         # 存储这轮的UI组件
-        self.turns_widgets.append({
+        widget_data = {
             'frame': turn_frame,
             'question': question_text,
             'answer': answer_text,
             'context': context_text,
             'delete_button': delete_button
-        })
+        }
+
+        # 保存expected_answer值（用于get_turns时恢复）
+        if expected_answer:
+            widget_data['expected_answer'] = expected_answer
+
+        self.turns_widgets.append(widget_data)
 
         # 更新所有删除按钮状态
         if self.editable:
@@ -247,10 +280,16 @@ class ConversationTurnsEditor:
             answer = widget['answer'].get(1.0, tk.END).strip()
             context = widget['context'].get(1.0, tk.END).strip()
 
-            turns.append({
+            turn_data = {
                 'question': question,
                 'answer': answer,
                 'context': context
-            })
+            }
+
+            # 保留expected_answer字段（如果存在）
+            if 'expected_answer' in widget and widget['expected_answer']:
+                turn_data['expected_answer'] = widget['expected_answer']
+
+            turns.append(turn_data)
 
         return turns

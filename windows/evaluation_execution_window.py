@@ -423,7 +423,7 @@ class EvaluationExecutionWindow:
 
         return dialog
 
-    def _execute_evaluation_thread(self, question, answer, context):
+    def _execute_evaluation_thread(self, question, answer, context, expected_answer=None):
         """在后台线程中执行评估"""
         try:
             # 获取大模型配置
@@ -432,8 +432,8 @@ class EvaluationExecutionWindow:
             # 获取评估执行器
             executor = get_executor(self.evaluator_info)
 
-            # 执行真实评估
-            result = executor.execute(question, answer, context, model_settings)
+            # 执行真实评估（传递expected_answer）
+            result = executor.execute(question, answer, context, model_settings, expected_answer)
 
             # 添加测试数据名称到结果中
             selected_name = self.test_data_combo.get()
@@ -995,6 +995,7 @@ class BatchEvaluationExecutor:
                             "question": current_question,  # 当前轮的问题
                             "answer": current_answer,     # 当前轮的回答
                             "context": full_context,      # 历史对话 + 当前轮参考资料
+                            "expected_answer": current_turn.get("expected_answer", ""),  # 保留期望回答
                             # 保留原始ID用于追踪
                             "_original_id": test_data.get("id", ""),
                             "_original_name": test_data['name'],
@@ -1011,6 +1012,7 @@ class BatchEvaluationExecutor:
                             "question": turns[0]["question"],
                             "answer": turns[0]["answer"],
                             "context": turns[0].get("context", ""),
+                            "expected_answer": turns[0].get("expected_answer", ""),  # 保留期望回答
                             "_original_id": test_data.get("id", "")
                         })
                     else:
@@ -1020,6 +1022,7 @@ class BatchEvaluationExecutor:
                             "question": test_data.get("question", ""),
                             "answer": test_data.get("answer", ""),
                             "context": test_data.get("context", ""),
+                            "expected_answer": test_data.get("expected_answer", ""),  # 保留期望回答
                             "_original_id": test_data.get("id", "")
                         })
             else:
@@ -1027,10 +1030,13 @@ class BatchEvaluationExecutor:
                 if turns:
                     # 构建多轮对话文本
                     conversation_parts = []
+                    expected_parts = []  # 收集所有轮次的期望回答
+
                     for i, turn in enumerate(turns, 1):
                         question = turn.get("question", "").strip()
                         answer = turn.get("answer", "").strip()
                         context = turn.get("context", "").strip()
+                        expected_answer = turn.get("expected_answer", "").strip()
 
                         # 构建单轮对话文本
                         turn_text = f"第{i}轮:\n问题: {question}\n回答: {answer}"
@@ -1040,8 +1046,15 @@ class BatchEvaluationExecutor:
 
                         conversation_parts.append(turn_text)
 
+                        # 收集期望回答
+                        if expected_answer:
+                            expected_parts.append(f"第{i}轮期望回答:\n{expected_answer}")
+
                     # 拼接所有轮次
                     full_conversation = "\n".join(conversation_parts)
+
+                    # 拼接所有期望回答
+                    full_expected_answer = "\n\n".join(expected_parts) if expected_parts else ""
 
                     # 创建处理后的数据
                     processed_data = {
@@ -1049,6 +1062,7 @@ class BatchEvaluationExecutor:
                         "question": full_conversation,  # 用完整对话作为question
                         "answer": "",  # 多轮模式下不需要单独的answer
                         "context": "",  # 多轮模式下不需要单独的context
+                        "expected_answer": full_expected_answer,  # 保留所有轮次的期望回答
                         "_original_id": test_data.get("id", ""),
                         "_is_multi_turn": True,  # 标记为多轮对话
                         "_turn_count": len(turns)
@@ -1061,6 +1075,7 @@ class BatchEvaluationExecutor:
                         "question": test_data.get("question", ""),
                         "answer": test_data.get("answer", ""),
                         "context": test_data.get("context", ""),
+                        "expected_answer": test_data.get("expected_answer", ""),  # 保留期望回答
                         "_original_id": test_data.get("id", "")
                     })
 
@@ -1156,12 +1171,13 @@ class BatchEvaluationExecutor:
                 # 更新进度
                 self.progress_window.after(0, self._update_progress, i + 1, test_data['name'])
 
-                # 执行评估
+                # 执行评估（传递expected_answer）
                 result = executor.execute(
                     test_data['question'],
                     test_data['answer'],
                     test_data.get('context', ''),
-                    model_settings
+                    model_settings,
+                    test_data.get('expected_answer')  # 传递期望回答
                 )
 
                 # 添加测试数据名称到结果中
