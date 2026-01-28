@@ -86,7 +86,7 @@ class RagasExecutor:
     #     except Exception as e:
     #         print(f"⚠️  清除DeepEval缓存失败: {e}")
 
-    def execute(self, question: str, answer: str, context: str, model_settings: Dict,ground_truth:str=None) -> Dict[str, Any]:
+    def execute(self, question: str, answer: str, context: str, model_settings: Dict, expected_answer: str = None) -> Dict[str, Any]:
         """
         执行评估
 
@@ -103,8 +103,8 @@ class RagasExecutor:
             answers = [answer]
             contexts = [[context]]
             questions=[question]
-            if ground_truth:
-                ground_truths = [ground_truth]
+            if expected_answer:
+                ground_truths = [expected_answer]
             else:
                 ground_truths = answers
             # To dict
@@ -152,12 +152,13 @@ class RagasExecutor:
                 'passed': result[metric.name][0]>=0.6,
                 'message': '',
                 'reason': '',
-                'verbose_logs': '',  # 添加详细日志
+                'verbose_logs': '',
                 'is_english': False,
-                'input': {  # 添加输入数据
+                'input': {
                     'question': question,
                     'answer': answer,
-                    'context': context
+                    'context': context,
+                    'expected_answer': expected_answer or ''  # 添加期望回答
                 }
             }
 

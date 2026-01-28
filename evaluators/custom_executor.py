@@ -115,7 +115,8 @@ class CustomExecutor:
                 'input': {
                     'question': question,
                     'answer': answer,
-                    'context': context
+                    'context': context,
+                    'expected_answer': expected_answer or ''  # 添加期望回答
                 },
                 'is_multi_turn': is_multi_turn,  # 标记是否为多轮评估
                 'is_english': self._is_english_text(result['reason'])

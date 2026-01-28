@@ -766,7 +766,7 @@ class EvaluatorDetailPopup:
         self.scoring_rules_frame = ttk.Frame(main_frame)
 
         # 根据框架和类型决定显示什么
-        if framework == "custom" and metric_type == "规则评分":
+        if framework == "custom" and metric_type in ["规则评分", "顺序规则"]:
             # 显示评分规则表格
             ttk.Label(self.scoring_rules_frame, text="评分规则:", font=font_manager.panel_font_bold()).grid(
                 row=0, column=0, sticky=tk.NW, pady=10
@@ -877,15 +877,15 @@ class EvaluatorDetailPopup:
         )
 
         # 根据框架和类型决定说明文本的row位置
-        if framework == "custom" and metric_type == "规则评分":
-            # 自定义规则评分:评分规则框架在row=6,说明在row=7
+        if framework == "custom" and metric_type in ["规则评分", "顺序规则"]:
+            # 自定义规则评分和顺序规则:评分规则框架在row=6,说明在row=7
             info_label.grid(row=7, column=0, columnspan=3, pady=(20, 10))
         else:
             # 其他情况:说明在row=6
             info_label.grid(row=6, column=0, columnspan=3, pady=(20, 10))
 
         # 按钮区域 - 动态计算row位置
-        if not (framework == "custom" and metric_type == "规则评分"):
+        if not (framework == "custom" and metric_type in ["规则评分", "顺序规则"]):
             # 非自定义规则评分:说明在row=6,按钮在row=7
             button_frame = ttk.Frame(main_frame)
             button_frame.grid(row=7, column=0, columnspan=3, pady=(30, 10), sticky=(tk.E))
@@ -919,6 +919,12 @@ class EvaluatorDetailPopup:
 2. 评分规则至少需要2条
 3. 分数不能重复
 4. 系统将根据规则自动生成评估Prompt"""
+        elif framework == "custom" and metric_type == "顺序规则":
+            return """说明：
+1. 这是顺序规则评估器
+2. LLM对每个规则进行0/1判断
+3. 代码逻辑选择第一个匹配的规则分数
+4. 规则按顺序排列，至少需要2条"""
         elif self._needs_criteria(metric_type):
             return """说明：
 1. 这是自定义评估标准
@@ -988,7 +994,7 @@ class EvaluatorDetailPopup:
             }
 
             # 如果是自定义框架，获取评分规则
-            if framework == "custom" and metric_type == "规则评分":
+            if framework == "custom" and metric_type in ["规则评分", "顺序规则"]:
                 try:
                     scoring_rules = self.scoring_rules_table.get_rules()
                     updated_data["scoring_rules"] = scoring_rules

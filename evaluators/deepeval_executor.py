@@ -452,10 +452,11 @@ class DeepEvalExecutor:
                 'passed': passed,
                 'reason': reason,
                 'verbose_logs': verbose_logs,
-                'input': {  # 新增：包含输入数据
+                'input': {
                     'question': question,
                     'answer': answer,
-                    'context': context
+                    'context': context,
+                    'expected_answer': expected_answer or ''  # 添加期望回答
                 }
             }
 
@@ -476,12 +477,13 @@ class DeepEvalExecutor:
                 'passed': passed,
                 'message': message,
                 'reason': reason,
-                'verbose_logs': verbose_logs,  # 添加详细日志
+                'verbose_logs': verbose_logs,
                 'is_english': is_english,
-                'input': {  # 添加输入数据
+                'input': {
                     'question': question,
                     'answer': answer,
-                    'context': context
+                    'context': context,
+                    'expected_answer': expected_answer or ''  # 添加期望回答
                 }
             }
 

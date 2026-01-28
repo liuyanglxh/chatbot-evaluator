@@ -283,7 +283,7 @@ class AddEvaluatorWindow:
         current_row = 0
 
         # 3. 根据框架和类型决定显示什么
-        if framework == "custom" and metric_type == "规则评分":
+        if framework == "custom" and metric_type in ["规则评分", "顺序规则"]:
             # 修改阈值标签文本（去掉"0-1"）
             self.threshold_label.config(text="阈值:")
 
@@ -337,12 +337,20 @@ class AddEvaluatorWindow:
             cancel_button.pack(side=tk.LEFT, padx=5)
 
             # 说明文本
-            info_text = """说明：
+            if metric_type == "规则评分":
+                info_text = """说明：
 1. 选择评估框架为"自定义"
 2. 填写评分规则（至少2条）
 3. 分数不能重复（0-1之间的浮点数）
 4. 每条规则包含分数和对应的评分标准
 5. 系统将根据规则自动生成评估Prompt"""
+            else:  # 顺序规则
+                info_text = """说明：
+1. 选择评估类型为"顺序规则"
+2. 填写评分规则（至少2条）
+3. 规则按顺序排列，系统会取第一个符合的规则的分数
+4. 每条规则包含分数和对应的评分标准
+5. LLM对每个规则进行0/1判断，代码逻辑选择第一个匹配"""
 
         elif self._needs_criteria(metric_type):
             # 恢复阈值标签文本
@@ -473,9 +481,9 @@ class AddEvaluatorWindow:
                 "GEval (Custom)"
             ]
         elif framework == "custom":
-            # 自定义框架只有一个类型，自动选中
-            self.metric_combo['values'] = ["规则评分"]
-            self.metric_type_var.set("规则评分")
+            # 自定义框架有两个类型
+            self.metric_combo['values'] = ["规则评分", "顺序规则"]
+            self.metric_type_var.set("规则评分")  # 默认选中规则评分
         else:
             self.metric_combo['values'] = ["请先选择评估框架"]
 
@@ -537,7 +545,7 @@ class AddEvaluatorWindow:
         }
 
         # 如果是自定义框架，获取评分规则
-        if framework == "custom" and metric_type == "规则评分":
+        if framework == "custom" and metric_type in ["规则评分", "顺序规则"]:
             try:
                 scoring_rules = self.scoring_rules_table.get_rules()
                 evaluator_config["scoring_rules"] = scoring_rules
