@@ -103,7 +103,10 @@ class RagasExecutor:
             answers = [answer]
             contexts = [[context]]
             questions=[question]
-            ground_truths=[ground_truth if ground_truth is not None else answers]
+            if ground_truth:
+                ground_truths = [ground_truth]
+            else:
+                ground_truths = answers
             # To dict
             data = {
                 "user_input": questions,
